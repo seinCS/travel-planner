@@ -1,0 +1,163 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  image         String?
+  emailVerified DateTime?
+  accounts      Account[]
+  sessions      Session[]
+  projects      Project[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Project {
+  id          String      @id @default(cuid())
+  userId      String
+  name        String
+  destination String
+  country     String?
+
+  // 공유 기능
+  shareToken   String?   @unique
+  shareEnabled Boolean   @default(false)
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  images      Image[]
+  places      Place[]
+  textInputs  TextInput[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([shareToken])
+}
+
+model Image {
+  id           String       @id @default(cuid())
+  projectId    String
+  url          String
+  status       String       @default("pending")
+  rawText      String?
+  errorMessage String?
+  project      Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  placeImages  PlaceImage[]
+  createdAt    DateTime     @default(now())
+
+  @@index([projectId])
+  @@index([status])
+}
+
+model Place {
+  id          String       @id @default(cuid())
+  projectId   String
+  name        String
+  category    String
+  comment     String?
+  latitude    Float
+  longitude   Float
+  status      String       @default("auto")
+
+  // Google Place 연동
+  googlePlaceId    String?
+  formattedAddress String?
+  googleMapsUrl    String?
+  rating           Float?
+  userRatingsTotal Int?
+  priceLevel       Int?
+
+  project          Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  placeImages      PlaceImage[]
+  placeTextInputs  PlaceTextInput[]
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([projectId])
+  @@index([category])
+  @@index([googlePlaceId])
+}
+
+model PlaceImage {
+  id      String @id @default(cuid())
+  placeId String
+  imageId String
+  place   Place  @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  image   Image  @relation(fields: [imageId], references: [id], onDelete: Cascade)
+
+  @@unique([placeId, imageId])
+  @@index([placeId])
+  @@index([imageId])
+}
+
+model TextInput {
+  id            String           @id @default(cuid())
+  projectId     String
+  type          String           // "text" | "url"
+  content       String           @db.Text
+  sourceUrl     String?
+  extractedText String?          @db.Text
+  status        String           @default("pending")
+  errorMessage  String?
+  project       Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  placeTextInputs PlaceTextInput[]
+  createdAt     DateTime         @default(now())
+
+  @@index([projectId])
+  @@index([status])
+}
+
+model PlaceTextInput {
+  id          String    @id @default(cuid())
+  placeId     String
+  textInputId String
+  place       Place     @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  textInput   TextInput @relation(fields: [textInputId], references: [id], onDelete: Cascade)
+
+  @@unique([placeId, textInputId])
+  @@index([placeId])
+  @@index([textInputId])
+}

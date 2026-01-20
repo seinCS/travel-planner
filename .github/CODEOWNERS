@@ -1,0 +1,27 @@
+# CODEOWNERS - 코드 리뷰 자동 할당
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# 기본 리뷰어 (모든 파일)
+* @kimsein
+
+# 프론트엔드 (컴포넌트, 스타일)
+/app/ @kimsein
+/components/ @kimsein
+
+# 백엔드 (API, 라이브러리)
+/app/api/ @kimsein
+/lib/ @kimsein
+
+# 데이터베이스 스키마
+/prisma/ @kimsein
+
+# 설정 파일
+*.config.* @kimsein
+.env* @kimsein
+
+# CI/CD
+/.github/ @kimsein
+
+# Claude 설정
+/.claude/ @kimsein
+CLAUDE.md @kimsein
