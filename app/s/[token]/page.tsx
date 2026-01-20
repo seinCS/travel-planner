@@ -361,6 +361,7 @@ export default function SharePage({ params }: SharePageProps) {
           <PlaceDetailsPanel
             placeId={detailPlaceId}
             onClose={() => setDetailPlaceId(null)}
+            shareToken={token}
           />
         </div>
       )}

@@ -9,6 +9,7 @@ import { getPhotoUrl } from '@/lib/google-maps'
 interface PlaceDetailsPanelProps {
   placeId: string
   onClose: () => void
+  shareToken?: string // 공유 페이지에서 사용 시 토큰 전달
 }
 
 interface PlaceDetailsResponse {
@@ -48,12 +49,19 @@ interface PlaceDetailsResponse {
 // SWR fetcher 함수
 const fetcher = (url: string) => fetch(url).then(res => res.ok ? res.json() : null)
 
-export function PlaceDetailsPanel({ placeId, onClose }: PlaceDetailsPanelProps) {
+export function PlaceDetailsPanel({ placeId, onClose, shareToken }: PlaceDetailsPanelProps) {
   const [showAllHours, setShowAllHours] = useState(false)
+
+  // API URL: 공유 모드면 공유 API, 아니면 일반 API 사용
+  const apiUrl = placeId
+    ? shareToken
+      ? `/api/share/${shareToken}/places/${placeId}/details`
+      : `/api/places/${placeId}/details`
+    : null
 
   // SWR로 데이터 페칭 - 자동 캐싱 및 중복 요청 제거 (client-swr-dedup 패턴)
   const { data: details, isLoading: loading } = useSWR<PlaceDetailsResponse>(
-    placeId ? `/api/places/${placeId}/details` : null,
+    apiUrl,
     fetcher,
     {
       revalidateOnFocus: false, // 포커스 시 재검증 비활성화
