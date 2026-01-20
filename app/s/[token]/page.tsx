@@ -212,6 +212,7 @@ export default function SharePage({ params }: SharePageProps) {
               places={places}
               selectedPlaceId={selectedPlaceId}
               onPlaceSelect={setSelectedPlaceId}
+              onOpenDetails={setDetailPlaceId}
             />
           </div>
 
