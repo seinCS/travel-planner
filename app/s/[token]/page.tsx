@@ -20,6 +20,19 @@ const GoogleMap = dynamic(
   }
 )
 
+const PlaceDetailsPanel = dynamic(
+  () => import('@/components/place/PlaceDetailsPanel').then((mod) => mod.PlaceDetailsPanel),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="p-4">
+        <div className="h-6 bg-gray-200 rounded w-3/4 animate-pulse mb-4"></div>
+        <div className="h-24 bg-gray-200 rounded animate-pulse"></div>
+      </div>
+    ),
+  }
+)
+
 interface SharedPlace {
   id: string
   name: string
@@ -59,6 +72,7 @@ export default function SharePage({ params }: SharePageProps) {
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null)
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
   const [cloning, setCloning] = useState(false)
+  const [detailPlaceId, setDetailPlaceId] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -275,7 +289,20 @@ export default function SharePage({ params }: SharePageProps) {
                           {style.icon}
                         </span>
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-medium text-sm">{place.name}</h3>
+                          <div className="flex items-center justify-between gap-2">
+                            <h3 className="font-medium text-sm truncate">{place.name}</h3>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="text-blue-500 hover:text-blue-700 h-6 px-2 flex-shrink-0"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setDetailPlaceId(place.id)
+                              }}
+                            >
+                              상세
+                            </Button>
+                          </div>
 
                           {/* 평점 */}
                           {place.rating && (
@@ -326,6 +353,16 @@ export default function SharePage({ params }: SharePageProps) {
           </div>
         </div>
       </main>
+
+      {/* 장소 상세 패널 */}
+      {detailPlaceId && (
+        <div className="fixed right-0 top-0 bottom-0 w-96 bg-white shadow-lg border-l z-50">
+          <PlaceDetailsPanel
+            placeId={detailPlaceId}
+            onClose={() => setDetailPlaceId(null)}
+          />
+        </div>
+      )}
 
       {/* 푸터 */}
       <footer className="bg-white border-t mt-6">
