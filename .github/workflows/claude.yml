@@ -1,0 +1,86 @@
+name: Claude Code Assistant
+
+on:
+  # PR 관련 트리거
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+  # 이슈/댓글 트리거 (@claude 멘션)
+  issue_comment:
+    types: [created]
+  issues:
+    types: [opened, assigned]
+
+  # PR 리뷰 코멘트
+  pull_request_review_comment:
+    types: [created]
+
+# 동시 실행 제어 (같은 PR에서 중복 실행 방지)
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.event.issue.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  claude-assistant:
+    # 봇 코멘트 무시, @claude 멘션 또는 PR 이벤트만 처리
+    if: |
+      (github.event_name == 'pull_request') ||
+      (github.event_name == 'issues' && github.event.action == 'opened') ||
+      (contains(github.event.comment.body, '@claude') &&
+       github.event.comment.user.type != 'Bot')
+
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude Code Action
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          model: "claude-sonnet-4-20250514"
+
+          custom_instructions: |
+            이 프로젝트는 Next.js 기반 여행 플래너입니다.
+
+            ## 기술 스택
+            - Next.js 16 (App Router), React 19, TypeScript
+            - Tailwind CSS 4, shadcn/ui
+            - Prisma ORM, Supabase (PostgreSQL + Storage)
+            - Claude API (Vision + Text)
+            - Google Maps API
+
+            ## 코딩 컨벤션
+            - 한국어 응답 선호
+            - TypeScript strict mode 준수
+            - Zod를 이용한 입력 검증
+            - 컴포넌트는 함수형으로 작성
+
+            ## 보안 주의사항
+            - API 키는 절대 코드에 하드코딩 금지
+            - 사용자 입력은 항상 검증
+            - SQL Injection, XSS 방지
+
+          allowed_tools: |
+            Read
+            Glob
+            Grep
+            Edit
+            Write
+            Bash(npm:*)
+            Bash(npx:*)
+            Bash(git:*)
+
+          disallowed_tools: |
+            Bash(rm:-rf)
+            Bash(curl:*)
+            Bash(wget:*)
