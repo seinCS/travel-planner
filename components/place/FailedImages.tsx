@@ -37,6 +37,7 @@ export function FailedImages({ images, onAddPlace }: FailedImagesProps) {
   const [category, setCategory] = useState<PlaceCategory>('other')
   const [comment, setComment] = useState('')
   const [loading, setLoading] = useState(false)
+  const [isExpanded, setIsExpanded] = useState(false)
 
   if (images.length === 0) return null
 
@@ -61,29 +62,42 @@ export function FailedImages({ images, onAddPlace }: FailedImagesProps) {
   }
 
   return (
-    <div className="mt-6">
-      <h3 className="font-semibold mb-3 flex items-center gap-2">
-        <span className="text-red-500">⚠️</span>
-        인식 실패 이미지 ({images.length}개)
-      </h3>
-      <div className="grid grid-cols-4 gap-2">
-        {images.map((image) => (
-          <div
-            key={image.id}
-            className="relative aspect-square cursor-pointer group"
-            onClick={() => setSelectedImage(image)}
-          >
-            <img
-              src={image.url}
-              alt="Failed image"
-              className="w-full h-full object-cover rounded-lg"
-            />
-            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
-              <span className="text-white text-xs">수동 입력</span>
+    <div className="mt-4">
+      {/* 접이식 헤더 - 클릭하여 펼치기/접기 */}
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center justify-between p-2 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+      >
+        <span className="font-semibold text-sm flex items-center gap-2 text-red-700">
+          <span>⚠️</span>
+          인식 실패 이미지 ({images.length}개)
+        </span>
+        <span className="text-red-600 text-sm">
+          {isExpanded ? '▲ 접기' : '▼ 펼치기'}
+        </span>
+      </button>
+
+      {/* 펼쳐진 상태에서만 이미지 그리드 표시 */}
+      {isExpanded && (
+        <div className="grid grid-cols-4 gap-2 mt-3 max-h-[200px] overflow-y-auto">
+          {images.map((image) => (
+            <div
+              key={image.id}
+              className="relative aspect-square cursor-pointer group"
+              onClick={() => setSelectedImage(image)}
+            >
+              <img
+                src={image.url}
+                alt="Failed image"
+                className="w-full h-full object-cover rounded-lg"
+              />
+              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg flex items-center justify-center">
+                <span className="text-white text-xs">수동 입력</span>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       <Dialog open={!!selectedImage} onOpenChange={(open) => !open && setSelectedImage(null)}>
         <DialogContent className="max-w-lg">
