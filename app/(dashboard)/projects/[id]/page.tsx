@@ -32,7 +32,7 @@ import { ImageList } from '@/components/upload/ImageList'
 import { ImageDetailModal } from '@/components/upload/ImageDetailModal'
 import { FailedImages } from '@/components/place/FailedImages'
 import { MobileNavigation, MobileTab } from '@/components/mobile/MobileNavigation'
-import { PlaceListDrawer } from '@/components/mobile/PlaceListDrawer'
+import { ResponsiveSidebar } from '@/components/layout/ResponsiveSidebar'
 import { toast } from 'sonner'
 import { Place, Image, TextInput } from '@/types'
 import { PlaceCategory } from '@/lib/constants'
@@ -75,7 +75,8 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
   // Mobile navigation state
   const [mobileTab, setMobileTab] = useState<MobileTab>('map')
-  const [isPlaceListDrawerOpen, setIsPlaceListDrawerOpen] = useState(false)
+  // Sidebar tab state for sm/md breakpoints
+  const [sidebarTab, setSidebarTab] = useState<'list' | 'input'>('list')
 
   const fetchProject = async () => {
     try {
@@ -322,13 +323,11 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
   // Mobile tab change handler
   const handleMobileTabChange = (tab: MobileTab) => {
     setMobileTab(tab)
-    if (tab === 'list') {
-      setIsPlaceListDrawerOpen(true)
-    }
+    // Drawer logic removed - tab switch displays content immediately
   }
 
   return (
-    <div className="h-[calc(100vh-8rem)] pb-16 lg:pb-0">
+    <div className="h-[calc(100vh-8rem)] pb-16 sm:pb-0">
       {/* 헤더 */}
       <div className="flex justify-between items-center mb-4">
         <div>
@@ -372,90 +371,220 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
         </div>
       </div>
 
-      {/* 메인 컨텐츠 - Mobile First */}
-      <div className="flex flex-col lg:grid lg:grid-cols-[2fr_1fr_280px] gap-4 h-[calc(100%-4rem)]">
-        {/* 지도 - Always visible, full height on mobile when map tab active */}
-        <div
-          className={`
-            bg-white rounded-lg border overflow-hidden min-h-[300px]
-            ${mobileTab === 'map' ? 'flex-1 h-full' : 'hidden lg:block'}
-            lg:h-full lg:min-h-[400px]
-          `}
-        >
-          <GoogleMap
-            places={places}
-            selectedPlaceId={selectedPlaceId}
-            onPlaceSelect={setSelectedPlaceId}
-            onOpenDetails={setDetailPlaceId}
-            center={mapCenter || undefined}
-          />
+      {/* 메인 컨텐츠 - 3-tier responsive layout */}
+      <div className="h-[calc(100%-4rem)]">
+        {/* Mobile (<640px): Tab-based single view */}
+        <div className="sm:hidden h-full flex flex-col">
+          {/* Map Tab */}
+          {mobileTab === 'map' && (
+            <div className="flex-1 bg-white rounded-lg border overflow-hidden min-h-[300px]">
+              <GoogleMap
+                places={places}
+                selectedPlaceId={selectedPlaceId}
+                onPlaceSelect={setSelectedPlaceId}
+                onOpenDetails={setDetailPlaceId}
+                center={mapCenter || undefined}
+              />
+            </div>
+          )}
+
+          {/* List Tab */}
+          {mobileTab === 'list' && (
+            <div className="flex-1 bg-white rounded-lg border p-4 overflow-hidden flex flex-col">
+              <h2 className="font-semibold mb-3 flex-shrink-0">📍 장소 목록 ({places.length}개)</h2>
+              <div className="flex-1 min-h-0 overflow-y-auto">
+                <PlaceList
+                  places={places}
+                  selectedPlaceId={selectedPlaceId}
+                  onPlaceSelect={(placeId) => {
+                    setSelectedPlaceId(placeId)
+                    setMobileTab('map')
+                  }}
+                  onPlaceDelete={handlePlaceDelete}
+                  onOpenDetails={setDetailPlaceId}
+                  onEditPlace={handleEditPlace}
+                  categoryFilter={categoryFilter}
+                  onCategoryFilterChange={setCategoryFilter}
+                />
+              </div>
+              {failedImages.length > 0 && (
+                <div className="flex-shrink-0 mt-4 pt-4 border-t">
+                  <FailedImages images={failedImages} onAddPlace={handleAddPlace} />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Input Tab */}
+          {mobileTab === 'input' && (
+            <div className="flex-1 flex flex-col gap-4 overflow-y-auto">
+              <div className="bg-white rounded-lg border p-3">
+                <InputTabs
+                  projectId={id}
+                  onImageUploadComplete={handleUploadComplete}
+                  onTextInputComplete={handleTextInputComplete}
+                  disabled={processing || processingText}
+                />
+              </div>
+              {textInputs.length > 0 && (
+                <div className="bg-white rounded-lg border p-3">
+                  <TextInputList
+                    textInputs={textInputs}
+                    onDelete={handleTextInputDelete}
+                    onRetry={handleRetryTextInputs}
+                    disabled={processing || processingText}
+                  />
+                </div>
+              )}
+              {images.length > 0 && (
+                <div className="bg-white rounded-lg border p-3 flex-1 overflow-hidden">
+                  <ImageList
+                    images={images}
+                    onRetry={handleRetryFailed}
+                    onImageClick={handleImageClick}
+                    vertical
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* 장소 목록 - Hidden on mobile (shown via drawer), visible on desktop */}
-        <div className="hidden lg:flex bg-white rounded-lg border p-4 overflow-hidden h-full flex-col">
-          <h2 className="font-semibold mb-3 flex-shrink-0">📍 장소 목록 ({places.length}개)</h2>
-          <div className="flex-1 overflow-hidden">
-            <PlaceList
+        {/* Tablet (640-1023px): 2-column with sidebar tabs */}
+        <div className="hidden sm:grid lg:hidden grid-cols-[1fr_320px] gap-4 h-full">
+          {/* Map Column */}
+          <div className="bg-white rounded-lg border overflow-hidden min-h-[400px]">
+            <GoogleMap
               places={places}
               selectedPlaceId={selectedPlaceId}
               onPlaceSelect={setSelectedPlaceId}
-              onPlaceDelete={handlePlaceDelete}
               onOpenDetails={setDetailPlaceId}
-              onEditPlace={handleEditPlace}
-              categoryFilter={categoryFilter}
-              onCategoryFilterChange={setCategoryFilter}
+              center={mapCenter || undefined}
             />
           </div>
 
-          {/* 실패 이미지 섹션 */}
-          {failedImages.length > 0 && (
-            <div className="flex-shrink-0 mt-4">
-              <FailedImages images={failedImages} onAddPlace={handleAddPlace} />
-            </div>
-          )}
+          {/* Sidebar with Tabs */}
+          <ResponsiveSidebar
+            activeTab={sidebarTab}
+            onTabChange={setSidebarTab}
+            placeCount={places.length}
+            pendingCount={pendingCount + pendingTextCount}
+          >
+            {sidebarTab === 'list' ? (
+              <div className="p-4 h-full flex flex-col">
+                <PlaceList
+                  places={places}
+                  selectedPlaceId={selectedPlaceId}
+                  onPlaceSelect={setSelectedPlaceId}
+                  onPlaceDelete={handlePlaceDelete}
+                  onOpenDetails={setDetailPlaceId}
+                  onEditPlace={handleEditPlace}
+                  categoryFilter={categoryFilter}
+                  onCategoryFilterChange={setCategoryFilter}
+                />
+                {failedImages.length > 0 && (
+                  <div className="flex-shrink-0 mt-4 pt-4 border-t">
+                    <FailedImages images={failedImages} onAddPlace={handleAddPlace} />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="p-4 flex flex-col gap-4 h-full overflow-y-auto">
+                <InputTabs
+                  projectId={id}
+                  onImageUploadComplete={handleUploadComplete}
+                  onTextInputComplete={handleTextInputComplete}
+                  disabled={processing || processingText}
+                />
+                {textInputs.length > 0 && (
+                  <TextInputList
+                    textInputs={textInputs}
+                    onDelete={handleTextInputDelete}
+                    onRetry={handleRetryTextInputs}
+                    disabled={processing || processingText}
+                  />
+                )}
+                {images.length > 0 && (
+                  <div className="flex-1 min-h-0">
+                    <ImageList
+                      images={images}
+                      onRetry={handleRetryFailed}
+                      onImageClick={handleImageClick}
+                      vertical
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+          </ResponsiveSidebar>
         </div>
 
-        {/* 입력 영역 - Shown on mobile when input tab active */}
-        <div
-          className={`
-            flex flex-col gap-4 overflow-hidden
-            ${mobileTab === 'input' ? 'flex-1' : 'hidden lg:flex'}
-            lg:h-full
-          `}
-        >
-          {/* 입력 탭 (이미지/텍스트/URL) */}
-          <div className="bg-white rounded-lg border p-3">
-            <InputTabs
-              projectId={id}
-              onImageUploadComplete={handleUploadComplete}
-              onTextInputComplete={handleTextInputComplete}
-              disabled={processing || processingText}
+        {/* Desktop (≥1024px): 3-column layout */}
+        <div className="hidden lg:grid grid-cols-[2fr_1fr_280px] gap-4 h-full">
+          {/* Map */}
+          <div className="bg-white rounded-lg border overflow-hidden min-h-[400px]">
+            <GoogleMap
+              places={places}
+              selectedPlaceId={selectedPlaceId}
+              onPlaceSelect={setSelectedPlaceId}
+              onOpenDetails={setDetailPlaceId}
+              center={mapCenter || undefined}
             />
           </div>
 
-          {/* 텍스트 입력 목록 */}
-          {textInputs.length > 0 && (
+          {/* Place List */}
+          <div className="bg-white rounded-lg border p-4 overflow-hidden h-full flex flex-col">
+            <h2 className="font-semibold mb-3 flex-shrink-0">📍 장소 목록 ({places.length}개)</h2>
+            <div className="flex-1 min-h-0 overflow-hidden">
+              <PlaceList
+                places={places}
+                selectedPlaceId={selectedPlaceId}
+                onPlaceSelect={setSelectedPlaceId}
+                onPlaceDelete={handlePlaceDelete}
+                onOpenDetails={setDetailPlaceId}
+                onEditPlace={handleEditPlace}
+                categoryFilter={categoryFilter}
+                onCategoryFilterChange={setCategoryFilter}
+              />
+            </div>
+            {failedImages.length > 0 && (
+              <div className="flex-shrink-0 mt-4">
+                <FailedImages images={failedImages} onAddPlace={handleAddPlace} />
+              </div>
+            )}
+          </div>
+
+          {/* Input Section */}
+          <div className="flex flex-col gap-4 overflow-hidden h-full">
             <div className="bg-white rounded-lg border p-3">
-              <TextInputList
-                textInputs={textInputs}
-                onDelete={handleTextInputDelete}
-                onRetry={handleRetryTextInputs}
+              <InputTabs
+                projectId={id}
+                onImageUploadComplete={handleUploadComplete}
+                onTextInputComplete={handleTextInputComplete}
                 disabled={processing || processingText}
               />
             </div>
-          )}
-
-          {/* 업로드된 이미지 목록 (세로 배열) */}
-          {images.length > 0 && (
-            <div className="bg-white rounded-lg border p-3 flex-1 overflow-hidden">
-              <ImageList
-                images={images}
-                onRetry={handleRetryFailed}
-                onImageClick={handleImageClick}
-                vertical
-              />
-            </div>
-          )}
+            {textInputs.length > 0 && (
+              <div className="bg-white rounded-lg border p-3">
+                <TextInputList
+                  textInputs={textInputs}
+                  onDelete={handleTextInputDelete}
+                  onRetry={handleRetryTextInputs}
+                  disabled={processing || processingText}
+                />
+              </div>
+            )}
+            {images.length > 0 && (
+              <div className="bg-white rounded-lg border p-3 flex-1 overflow-hidden">
+                <ImageList
+                  images={images}
+                  onRetry={handleRetryFailed}
+                  onImageClick={handleImageClick}
+                  vertical
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -465,37 +594,6 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
         onTabChange={handleMobileTabChange}
         placeCount={places.length}
       />
-
-      {/* Mobile Place List Drawer */}
-      <PlaceListDrawer
-        open={isPlaceListDrawerOpen}
-        onOpenChange={setIsPlaceListDrawerOpen}
-        title={`📍 장소 목록 (${places.length}개)`}
-      >
-        <PlaceList
-          places={places}
-          selectedPlaceId={selectedPlaceId}
-          onPlaceSelect={(placeId) => {
-            setSelectedPlaceId(placeId)
-            setIsPlaceListDrawerOpen(false)
-            setMobileTab('map')
-          }}
-          onPlaceDelete={handlePlaceDelete}
-          onOpenDetails={(placeId) => {
-            setDetailPlaceId(placeId)
-            setIsPlaceListDrawerOpen(false)
-          }}
-          onEditPlace={handleEditPlace}
-          categoryFilter={categoryFilter}
-          onCategoryFilterChange={setCategoryFilter}
-        />
-        {/* 실패 이미지 섹션 */}
-        {failedImages.length > 0 && (
-          <div className="mt-4">
-            <FailedImages images={failedImages} onAddPlace={handleAddPlace} />
-          </div>
-        )}
-      </PlaceListDrawer>
 
       {/* 이미지 상세 모달 */}
       <ImageDetailModal
@@ -511,11 +609,11 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
         <>
           {/* Mobile: Bottom Sheet */}
           <Sheet open={!!detailPlaceId} onOpenChange={(open) => !open && setDetailPlaceId(null)}>
-            <SheetContent side="bottom" className="h-[85vh] rounded-t-xl lg:hidden">
-              <SheetHeader className="pb-2 border-b">
+            <SheetContent side="bottom" className="max-h-[90vh] h-auto min-h-[50vh] rounded-t-xl flex flex-col lg:hidden">
+              <SheetHeader className="flex-shrink-0 pb-2 border-b">
                 <SheetTitle>장소 상세</SheetTitle>
               </SheetHeader>
-              <div className="overflow-y-auto h-full pb-safe">
+              <div className="flex-1 min-h-0 overflow-y-auto pb-safe">
                 <PlaceDetailsPanel
                   placeId={detailPlaceId}
                   onClose={() => setDetailPlaceId(null)}
