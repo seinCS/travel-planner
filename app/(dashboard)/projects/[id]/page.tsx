@@ -33,6 +33,7 @@ import { ImageDetailModal } from '@/components/upload/ImageDetailModal'
 import { FailedImages } from '@/components/place/FailedImages'
 import { MobileNavigation, MobileTab } from '@/components/mobile/MobileNavigation'
 import { ResponsiveSidebar } from '@/components/layout/ResponsiveSidebar'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { toast } from 'sonner'
 import { Place, Image, TextInput } from '@/types'
 import { PlaceCategory } from '@/lib/constants'
@@ -77,6 +78,8 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
   const [mobileTab, setMobileTab] = useState<MobileTab>('map')
   // Sidebar tab state for sm/md breakpoints
   const [sidebarTab, setSidebarTab] = useState<'list' | 'input'>('list')
+  // Responsive: detect mobile for conditional rendering
+  const isMobile = useIsMobile()
 
   const fetchProject = async () => {
     try {
@@ -605,31 +608,31 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
       />
 
       {/* 장소 상세 패널 - Mobile: Bottom Sheet, Desktop: Side Panel */}
-      {detailPlaceId && (
-        <>
-          {/* Mobile: Bottom Sheet */}
-          <Sheet open={!!detailPlaceId} onOpenChange={(open) => !open && setDetailPlaceId(null)}>
-            <SheetContent side="bottom" className="max-h-[90vh] h-auto min-h-[50vh] rounded-t-xl flex flex-col lg:hidden">
-              <SheetHeader className="flex-shrink-0 pb-2 border-b">
-                <SheetTitle>장소 상세</SheetTitle>
-              </SheetHeader>
-              <div className="flex-1 min-h-0 overflow-y-auto pb-safe">
-                <PlaceDetailsPanel
-                  placeId={detailPlaceId}
-                  onClose={() => setDetailPlaceId(null)}
-                />
-              </div>
-            </SheetContent>
-          </Sheet>
+      {/* Mobile: Bottom Sheet - only render on mobile to avoid Radix focus trap on desktop */}
+      {detailPlaceId && isMobile && (
+        <Sheet open={!!detailPlaceId} onOpenChange={(open) => !open && setDetailPlaceId(null)}>
+          <SheetContent side="bottom" className="max-h-[90vh] h-auto min-h-[50vh] rounded-t-xl flex flex-col">
+            <SheetHeader className="flex-shrink-0 pb-2 border-b">
+              <SheetTitle>장소 상세</SheetTitle>
+            </SheetHeader>
+            <div className="flex-1 min-h-0 overflow-y-auto pb-safe">
+              <PlaceDetailsPanel
+                placeId={detailPlaceId}
+                onClose={() => setDetailPlaceId(null)}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
 
-          {/* Desktop: Side Panel */}
-          <div className="hidden lg:block fixed right-0 top-16 bottom-0 w-96 bg-white shadow-lg border-l z-50">
-            <PlaceDetailsPanel
-              placeId={detailPlaceId}
-              onClose={() => setDetailPlaceId(null)}
-            />
-          </div>
-        </>
+      {/* Desktop: Side Panel - only render on desktop */}
+      {detailPlaceId && isMobile === false && (
+        <div className="fixed right-0 top-16 bottom-0 w-96 bg-white shadow-lg border-l z-50 overflow-y-auto">
+          <PlaceDetailsPanel
+            placeId={detailPlaceId}
+            onClose={() => setDetailPlaceId(null)}
+          />
+        </div>
       )}
 
       {/* 장소 편집 모달 */}
