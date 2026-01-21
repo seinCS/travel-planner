@@ -4,6 +4,7 @@ import { useEffect, useState, use, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 
 // 무거운 컴포넌트들 동적 임포트 (bundle-dynamic-imports 패턴)
 const GoogleMap = dynamic(() => import('@/components/map/GoogleMap').then(mod => mod.GoogleMap), {
@@ -30,6 +31,8 @@ import { TextInputList } from '@/components/input/TextInputList'
 import { ImageList } from '@/components/upload/ImageList'
 import { ImageDetailModal } from '@/components/upload/ImageDetailModal'
 import { FailedImages } from '@/components/place/FailedImages'
+import { MobileNavigation, MobileTab } from '@/components/mobile/MobileNavigation'
+import { PlaceListDrawer } from '@/components/mobile/PlaceListDrawer'
 import { toast } from 'sonner'
 import { Place, Image, TextInput } from '@/types'
 import { PlaceCategory } from '@/lib/constants'
@@ -70,6 +73,9 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
   const [editingPlace, setEditingPlace] = useState<PlaceWithPlaceImages | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  // Mobile navigation state
+  const [mobileTab, setMobileTab] = useState<MobileTab>('map')
+  const [isPlaceListDrawerOpen, setIsPlaceListDrawerOpen] = useState(false)
 
   const fetchProject = async () => {
     try {
@@ -313,37 +319,69 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
     )
   }
 
+  // Mobile tab change handler
+  const handleMobileTabChange = (tab: MobileTab) => {
+    setMobileTab(tab)
+    if (tab === 'list') {
+      setIsPlaceListDrawerOpen(true)
+    }
+  }
+
   return (
-    <div className="h-[calc(100vh-8rem)]">
+    <div className="h-[calc(100vh-8rem)] pb-16 lg:pb-0">
       {/* 헤더 */}
       <div className="flex justify-between items-center mb-4">
         <div>
-          <h1 className="text-2xl font-bold">{project?.name}</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl lg:text-2xl font-bold">{project?.name}</h1>
+          <p className="text-sm text-muted-foreground">
             {project?.destination}{project?.country && `, ${project.country}`}
           </p>
         </div>
         <div className="flex gap-2">
-          {(pendingCount > 0 || failedCount > 0) && (
-            <Button onClick={() => handleProcess()} disabled={processing || processingText}>
-              {processing ? '처리 중...' : `📸 이미지 분석 (${pendingCount + failedCount})`}
-            </Button>
-          )}
-          {(pendingTextCount > 0 || failedTextCount > 0) && (
-            <Button onClick={() => handleProcessText()} disabled={processing || processingText}>
-              {processingText ? '처리 중...' : `📝 텍스트 분석 (${pendingTextCount + failedTextCount})`}
-            </Button>
-          )}
-          <Button variant="outline" onClick={() => setIsShareModalOpen(true)}>
+          {/* Desktop: Show all buttons */}
+          <div className="hidden lg:flex gap-2">
+            {(pendingCount > 0 || failedCount > 0) && (
+              <Button onClick={() => handleProcess()} disabled={processing || processingText}>
+                {processing ? '처리 중...' : `📸 이미지 분석 (${pendingCount + failedCount})`}
+              </Button>
+            )}
+            {(pendingTextCount > 0 || failedTextCount > 0) && (
+              <Button onClick={() => handleProcessText()} disabled={processing || processingText}>
+                {processingText ? '처리 중...' : `📝 텍스트 분석 (${pendingTextCount + failedTextCount})`}
+              </Button>
+            )}
+          </div>
+          {/* Mobile: Compact process button */}
+          <div className="flex lg:hidden gap-2">
+            {(pendingCount > 0 || failedCount > 0 || pendingTextCount > 0 || failedTextCount > 0) && (
+              <Button
+                size="sm"
+                onClick={() => {
+                  if (pendingCount > 0 || failedCount > 0) handleProcess()
+                  if (pendingTextCount > 0 || failedTextCount > 0) handleProcessText()
+                }}
+                disabled={processing || processingText}
+              >
+                {processing || processingText ? '처리 중...' : `분석 (${pendingCount + failedCount + pendingTextCount + failedTextCount})`}
+              </Button>
+            )}
+          </div>
+          <Button variant="outline" size="sm" className="lg:size-auto" onClick={() => setIsShareModalOpen(true)}>
             공유
           </Button>
         </div>
       </div>
 
-      {/* 메인 컨텐츠 */}
-      <div className="grid lg:grid-cols-[2fr_1fr_280px] gap-4 h-[calc(100%-4rem)]">
-        {/* 왼쪽: 지도 (넓게) */}
-        <div className="bg-white rounded-lg border overflow-hidden h-full min-h-[400px]">
+      {/* 메인 컨텐츠 - Mobile First */}
+      <div className="flex flex-col lg:grid lg:grid-cols-[2fr_1fr_280px] gap-4 h-[calc(100%-4rem)]">
+        {/* 지도 - Always visible, full height on mobile when map tab active */}
+        <div
+          className={`
+            bg-white rounded-lg border overflow-hidden min-h-[300px]
+            ${mobileTab === 'map' ? 'flex-1 h-full' : 'hidden lg:block'}
+            lg:h-full lg:min-h-[400px]
+          `}
+        >
           <GoogleMap
             places={places}
             selectedPlaceId={selectedPlaceId}
@@ -353,8 +391,8 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
           />
         </div>
 
-        {/* 가운데: 장소 목록 (좁게) */}
-        <div className="bg-white rounded-lg border p-4 overflow-hidden h-full flex flex-col">
+        {/* 장소 목록 - Hidden on mobile (shown via drawer), visible on desktop */}
+        <div className="hidden lg:flex bg-white rounded-lg border p-4 overflow-hidden h-full flex-col">
           <h2 className="font-semibold mb-3 flex-shrink-0">📍 장소 목록 ({places.length}개)</h2>
           <div className="flex-1 overflow-hidden">
             <PlaceList
@@ -377,8 +415,14 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
           )}
         </div>
 
-        {/* 오른쪽: 입력 탭 + 목록 */}
-        <div className="flex flex-col gap-4 h-full overflow-hidden">
+        {/* 입력 영역 - Shown on mobile when input tab active */}
+        <div
+          className={`
+            flex flex-col gap-4 overflow-hidden
+            ${mobileTab === 'input' ? 'flex-1' : 'hidden lg:flex'}
+            lg:h-full
+          `}
+        >
           {/* 입력 탭 (이미지/텍스트/URL) */}
           <div className="bg-white rounded-lg border p-3">
             <InputTabs
@@ -415,6 +459,44 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
         </div>
       </div>
 
+      {/* Mobile Navigation */}
+      <MobileNavigation
+        activeTab={mobileTab}
+        onTabChange={handleMobileTabChange}
+        placeCount={places.length}
+      />
+
+      {/* Mobile Place List Drawer */}
+      <PlaceListDrawer
+        open={isPlaceListDrawerOpen}
+        onOpenChange={setIsPlaceListDrawerOpen}
+        title={`📍 장소 목록 (${places.length}개)`}
+      >
+        <PlaceList
+          places={places}
+          selectedPlaceId={selectedPlaceId}
+          onPlaceSelect={(placeId) => {
+            setSelectedPlaceId(placeId)
+            setIsPlaceListDrawerOpen(false)
+            setMobileTab('map')
+          }}
+          onPlaceDelete={handlePlaceDelete}
+          onOpenDetails={(placeId) => {
+            setDetailPlaceId(placeId)
+            setIsPlaceListDrawerOpen(false)
+          }}
+          onEditPlace={handleEditPlace}
+          categoryFilter={categoryFilter}
+          onCategoryFilterChange={setCategoryFilter}
+        />
+        {/* 실패 이미지 섹션 */}
+        {failedImages.length > 0 && (
+          <div className="mt-4">
+            <FailedImages images={failedImages} onAddPlace={handleAddPlace} />
+          </div>
+        )}
+      </PlaceListDrawer>
+
       {/* 이미지 상세 모달 */}
       <ImageDetailModal
         image={selectedImage}
@@ -424,14 +506,32 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
         onPlaceSelect={setSelectedPlaceId}
       />
 
-      {/* 장소 상세 패널 */}
+      {/* 장소 상세 패널 - Mobile: Bottom Sheet, Desktop: Side Panel */}
       {detailPlaceId && (
-        <div className="fixed right-0 top-16 bottom-0 w-96 bg-white shadow-lg border-l z-50">
-          <PlaceDetailsPanel
-            placeId={detailPlaceId}
-            onClose={() => setDetailPlaceId(null)}
-          />
-        </div>
+        <>
+          {/* Mobile: Bottom Sheet */}
+          <Sheet open={!!detailPlaceId} onOpenChange={(open) => !open && setDetailPlaceId(null)}>
+            <SheetContent side="bottom" className="h-[85vh] rounded-t-xl lg:hidden">
+              <SheetHeader className="pb-2 border-b">
+                <SheetTitle>장소 상세</SheetTitle>
+              </SheetHeader>
+              <div className="overflow-y-auto h-full pb-safe">
+                <PlaceDetailsPanel
+                  placeId={detailPlaceId}
+                  onClose={() => setDetailPlaceId(null)}
+                />
+              </div>
+            </SheetContent>
+          </Sheet>
+
+          {/* Desktop: Side Panel */}
+          <div className="hidden lg:block fixed right-0 top-16 bottom-0 w-96 bg-white shadow-lg border-l z-50">
+            <PlaceDetailsPanel
+              placeId={detailPlaceId}
+              onClose={() => setDetailPlaceId(null)}
+            />
+          </div>
+        </>
       )}
 
       {/* 장소 편집 모달 */}
