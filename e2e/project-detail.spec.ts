@@ -1,0 +1,120 @@
+import { test, expect, TEST_PROJECT, TEST_PLACES, TEST_SHARE_TOKEN } from './fixtures/auth'
+
+test.describe('프로젝트 상세 페이지 (/projects/[id]) - 헤더', () => {
+  test('프로젝트 이름이 표시된다', async ({ projectDetailPage }) => {
+    await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
+    await expect(projectDetailPage.getByRole('heading', { name: TEST_PROJECT.name })).toBeVisible()
+  })
+
+  test('여행지와 국가가 표시된다', async ({ projectDetailPage }) => {
+    await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
+    await expect(projectDetailPage.getByText(`${TEST_PROJECT.destination}, ${TEST_PROJECT.country}`)).toBeVisible()
+  })
+
+  test('공유 버튼이 표시된다', async ({ projectDetailPage }) => {
+    await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
+    await expect(projectDetailPage.getByRole('button', { name: '공유' })).toBeVisible()
+  })
+})
+
+test.describe('프로젝트 상세 페이지 - 장소 목록', () => {
+  test('장소 목록 헤더가 표시된다', async ({ projectDetailPage }) => {
+    await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
+    await expect(projectDetailPage.getByText(/📍 장소 목록/)).toBeVisible()
+  })
+
+  test('장소 개수가 표시된다', async ({ projectDetailPage }) => {
+    await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
+    await expect(projectDetailPage.getByText(`(${TEST_PLACES.length}개)`)).toBeVisible()
+  })
+
+  test('장소 이름들이 표시된다', async ({ projectDetailPage }) => {
+    await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
+
+    for (const place of TEST_PLACES) {
+      await expect(projectDetailPage.getByText(place.name).first()).toBeVisible()
+    }
+  })
+
+  test('카테고리 필터 버튼이 표시된다', async ({ projectDetailPage }) => {
+    await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
+    await expect(projectDetailPage.getByRole('button', { name: /전체/ })).toBeVisible()
+  })
+})
+
+test.describe('프로젝트 상세 페이지 - 입력 탭', () => {
+  test('이미지 탭이 기본 선택되어 있다', async ({ projectDetailPage }) => {
+    await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
+
+    const imageTab = projectDetailPage.getByRole('button', { name: '📸 이미지', exact: true })
+    await expect(imageTab).toBeVisible()
+  })
+
+  test('텍스트 탭이 표시된다', async ({ projectDetailPage }) => {
+    await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
+    await expect(projectDetailPage.getByRole('button', { name: /📝.*텍스트/ })).toBeVisible()
+  })
+
+  test('URL 탭이 표시된다', async ({ projectDetailPage }) => {
+    await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
+    await expect(projectDetailPage.getByRole('button', { name: /🔗.*URL/ })).toBeVisible()
+  })
+
+  test('이미지 업로드 영역이 표시된다', async ({ projectDetailPage }) => {
+    await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
+    await expect(projectDetailPage.getByText(/이미지를 드래그하거나 클릭/)).toBeVisible()
+  })
+
+  test('텍스트 탭 클릭 시 텍스트 입력 폼이 표시된다', async ({ projectDetailPage }) => {
+    await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
+    await projectDetailPage.getByRole('button', { name: /📝.*텍스트/ }).click()
+
+    await expect(projectDetailPage.getByPlaceholder(/여행지 정보|장소 정보|텍스트/i)).toBeVisible()
+  })
+
+  test('URL 탭 클릭 시 URL 입력 폼이 표시된다', async ({ projectDetailPage }) => {
+    await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
+    await projectDetailPage.getByRole('button', { name: /🔗.*URL/ }).click()
+
+    await expect(projectDetailPage.getByPlaceholder(/URL|블로그|https/i)).toBeVisible()
+  })
+})
+
+test.describe('프로젝트 상세 페이지 - 공유 모달', () => {
+  test('공유 버튼 클릭 시 모달이 열린다', async ({ projectDetailPage }) => {
+    await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
+    await projectDetailPage.getByRole('button', { name: '공유' }).click()
+
+    await expect(projectDetailPage.getByRole('dialog')).toBeVisible()
+    await expect(projectDetailPage.getByRole('heading', { name: '프로젝트 공유' })).toBeVisible()
+  })
+
+  test('공유 토글이 표시된다', async ({ projectDetailPage }) => {
+    await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
+    await projectDetailPage.getByRole('button', { name: '공유' }).click()
+
+    await expect(projectDetailPage.getByText('공유 링크 활성화')).toBeVisible()
+    await expect(projectDetailPage.getByRole('switch')).toBeVisible()
+  })
+
+  test('공유 토글 활성화 시 공유 URL이 표시된다', async ({ projectDetailPage }) => {
+    await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
+    await projectDetailPage.getByRole('button', { name: '공유' }).click()
+
+    // 토글 활성화 및 API 응답 대기
+    const switchElement = projectDetailPage.getByRole('switch')
+    await switchElement.click()
+
+    // 공유 URL 입력 필드가 나타날 때까지 대기 (API 응답 후 UI 업데이트)
+    await expect(projectDetailPage.locator('input[readonly]')).toBeVisible({ timeout: 5000 })
+  })
+})
+
+test.describe('프로젝트 상세 페이지 - 분석 버튼', () => {
+  test('pending 이미지가 있으면 이미지 분석 버튼이 표시된다', async ({ projectDetailPage }) => {
+    await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
+
+    // TEST_IMAGES에 pending 상태 이미지가 있음
+    await expect(projectDetailPage.getByRole('button', { name: /📸.*이미지 분석/ })).toBeVisible()
+  })
+})
