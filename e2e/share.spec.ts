@@ -37,10 +37,11 @@ test.describe('공유 페이지 - 로딩 상태', () => {
 
     // 로딩 상태 확인 (로딩 중... 텍스트 또는 스피너)
     const loadingIndicator = page.getByText('로딩 중...')
-    // 로딩 상태가 나타났다가 사라지는지 확인
-    await expect(loadingIndicator).toBeVisible({ timeout: 2000 }).catch(() => {
-      // 너무 빨리 로드되면 로딩 상태를 못 볼 수 있음
-    })
+    // 로딩 상태가 나타났다가 사라지는지 확인 (빠른 로드 시 보이지 않을 수 있음)
+    const isLoadingVisible = await loadingIndicator.isVisible().catch(() => false)
+    // 로딩이 보였거나, 이미 콘텐츠가 로드된 상태면 성공
+    const hasContent = await page.getByText(/페이지를 찾을 수 없습니다|공유된 여행 계획/).isVisible().catch(() => false)
+    expect(isLoadingVisible || hasContent).toBe(true)
   })
 })
 
@@ -93,12 +94,11 @@ test.describe('공유 페이지 - 미인증 사용자 복제 시도', () => {
     await expect(copyButton).toBeVisible()
     await copyButton.click()
 
-    // 로그인 페이지로 리다이렉트 또는 토스트 메시지
-    await page.waitForTimeout(1000)
-    const url = page.url()
-    const hasRedirect = url.includes('/login')
-    const hasToast = await page.getByText(/로그인이 필요/).isVisible().catch(() => false)
+    // 로그인 페이지로 리다이렉트 또는 토스트 메시지 대기
+    const loginRedirect = page.waitForURL(/\/login/, { timeout: 3000 }).then(() => true).catch(() => false)
+    const toastVisible = page.getByText(/로그인이 필요/).waitFor({ timeout: 3000 }).then(() => true).catch(() => false)
 
+    const [hasRedirect, hasToast] = await Promise.all([loginRedirect, toastVisible])
     expect(hasRedirect || hasToast).toBe(true)
   })
 })

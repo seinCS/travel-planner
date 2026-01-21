@@ -106,7 +106,7 @@ test.describe('프로젝트 상세 페이지 - 공유 모달', () => {
     await switchElement.click()
 
     // 공유 URL 입력 필드가 나타날 때까지 대기 (API 응답 후 UI 업데이트)
-    await expect(projectDetailPage.locator('input[readonly]')).toBeVisible({ timeout: 10000 })
+    await expect(projectDetailPage.locator('input[readonly]')).toBeVisible({ timeout: 5000 })
   })
 })
 

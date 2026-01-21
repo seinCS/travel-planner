@@ -238,6 +238,14 @@ async function mockShareAPI(page: Page) {
   })
 }
 
+// 공통 컨텍스트 생성 헬퍼
+async function createAuthenticatedContext(browser: import('@playwright/test').Browser) {
+  const context = await browser.newContext()
+  const page = await context.newPage()
+  await mockAuthSession(page)
+  return { context, page }
+}
+
 // 인증된 테스트를 위한 fixture
 // 주의: 인증이 필요한 페이지 테스트는 실제 인증 환경에서만 동작합니다.
 // 로컬 테스트 시 NEXTAUTH_SECRET 환경변수와 테스트 DB가 필요합니다.
@@ -247,28 +255,22 @@ export const test = base.extend<{
   projectDetailPage: Page
   sharePageWithAuth: Page
 }>({
+  // 기본 인증 페이지 (API 모킹 없음, 커스텀 모킹용)
   authenticatedPage: async ({ browser }, use) => {
-    const context = await browser.newContext()
-    const page = await context.newPage()
-    await mockAuthSession(page)
-    await mockProjectsAPI(page)
+    const { context, page } = await createAuthenticatedContext(browser)
     await use(page)
     await context.close()
   },
 
   projectsPage: async ({ browser }, use) => {
-    const context = await browser.newContext()
-    const page = await context.newPage()
-    await mockAuthSession(page)
+    const { context, page } = await createAuthenticatedContext(browser)
     await mockProjectsAPI(page)
     await use(page)
     await context.close()
   },
 
   projectDetailPage: async ({ browser }, use) => {
-    const context = await browser.newContext()
-    const page = await context.newPage()
-    await mockAuthSession(page)
+    const { context, page } = await createAuthenticatedContext(browser)
     await mockProjectsAPI(page)
     await mockProjectDetailAPI(page)
     await use(page)
@@ -276,9 +278,7 @@ export const test = base.extend<{
   },
 
   sharePageWithAuth: async ({ browser }, use) => {
-    const context = await browser.newContext()
-    const page = await context.newPage()
-    await mockAuthSession(page)
+    const { context, page } = await createAuthenticatedContext(browser)
     await mockShareAPI(page)
     await use(page)
     await context.close()

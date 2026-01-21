@@ -2,7 +2,8 @@ import { defineConfig, devices } from '@playwright/test'
 import dotenv from 'dotenv'
 import path from 'path'
 
-// .env.local 파일 로드
+// .env.test 파일 로드 (없으면 .env.local 사용)
+dotenv.config({ path: path.resolve(__dirname, '.env.test') })
 dotenv.config({ path: path.resolve(__dirname, '.env.local') })
 
 export default defineConfig({
