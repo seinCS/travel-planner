@@ -49,7 +49,7 @@ export function PlaceList({
   return (
     <div className="h-full flex flex-col">
       {/* 카테고리 필터 */}
-      <div className="flex flex-wrap gap-2 mb-4">
+      <div className="flex flex-wrap gap-2 mb-4 flex-shrink-0">
         <Button
           size="sm"
           variant={categoryFilter === null ? 'default' : 'outline'}
@@ -78,7 +78,7 @@ export function PlaceList({
       </div>
 
       {/* 장소 목록 */}
-      <div className="flex-1 overflow-y-auto space-y-2">
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
         {filteredPlaces.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             {places.length === 0 ? '아직 장소가 없습니다.' : '해당 카테고리에 장소가 없습니다.'}
