@@ -126,12 +126,12 @@ export function PlaceList({
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-1 flex-shrink-0">
+                  <div className="flex items-center gap-1 md:gap-0 flex-shrink-0">
                     {onEditPlace && (
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="text-gray-500 hover:text-gray-700 h-6 px-2"
+                        className="text-gray-500 hover:text-gray-700 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 md:h-6 px-2"
                         onClick={(e) => {
                           e.stopPropagation()
                           onEditPlace(place)
@@ -144,7 +144,7 @@ export function PlaceList({
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="text-blue-500 hover:text-blue-700 h-6 px-2"
+                        className="text-blue-500 hover:text-blue-700 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 md:h-6 px-2"
                         onClick={(e) => {
                           e.stopPropagation()
                           onOpenDetails(place.id)
@@ -156,7 +156,7 @@ export function PlaceList({
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="text-red-500 hover:text-red-700 h-6 px-2"
+                      className="text-red-500 hover:text-red-700 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 md:h-6 px-2"
                       onClick={(e) => {
                         e.stopPropagation()
                         if (confirm('이 장소를 삭제하시겠습니까?')) {

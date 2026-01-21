@@ -240,7 +240,11 @@ async function mockShareAPI(page: Page) {
 
 // 공통 컨텍스트 생성 헬퍼
 async function createAuthenticatedContext(browser: import('@playwright/test').Browser) {
-  const context = await browser.newContext()
+  const context = await browser.newContext({
+    extraHTTPHeaders: {
+      'x-e2e-test': 'true',
+    },
+  })
   const page = await context.newPage()
   await mockAuthSession(page)
   return { context, page }
