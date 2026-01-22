@@ -2,24 +2,52 @@
 
 import { Button } from '@/components/ui/button'
 
-type MobileTab = 'map' | 'list' | 'input'
+// 기본 3탭 모드 (메인 페이지용)
+export type MobileTab = 'map' | 'list' | 'input'
 
-interface MobileNavigationProps {
+// 공유 페이지용 2탭 모드
+export type ShareMobileTab = 'map' | 'list'
+
+// 기본 props (3탭 모드)
+interface DefaultMobileNavigationProps {
   activeTab: MobileTab
   onTabChange: (tab: MobileTab) => void
   placeCount?: number
+  variant?: 'default'
 }
 
-export function MobileNavigation({
-  activeTab,
-  onTabChange,
-  placeCount = 0,
-}: MobileNavigationProps) {
-  const tabs: { id: MobileTab; label: string; icon: string }[] = [
-    { id: 'map', label: '지도', icon: '🗺️' },
-    { id: 'list', label: '목록', icon: '📍' },
-    { id: 'input', label: '추가', icon: '➕' },
-  ]
+// 공유 페이지 props (2탭 모드)
+interface ShareMobileNavigationProps {
+  activeTab: ShareMobileTab
+  onTabChange: (tab: ShareMobileTab) => void
+  placeCount?: number
+  variant: 'share'
+}
+
+type MobileNavigationProps = DefaultMobileNavigationProps | ShareMobileNavigationProps
+
+const ALL_TABS: { id: MobileTab; label: string; icon: string }[] = [
+  { id: 'map', label: '지도', icon: '🗺️' },
+  { id: 'list', label: '목록', icon: '📍' },
+  { id: 'input', label: '추가', icon: '➕' },
+]
+
+export function MobileNavigation(props: MobileNavigationProps) {
+  const { activeTab, placeCount = 0, variant = 'default' } = props
+
+  // share 모드에서는 input 탭 제외
+  const tabs = variant === 'share'
+    ? ALL_TABS.filter(tab => tab.id !== 'input')
+    : ALL_TABS
+
+  const handleTabChange = (tabId: MobileTab) => {
+    if (variant === 'share') {
+      // share 모드에서는 ShareMobileTab으로 캐스팅
+      ;(props as ShareMobileNavigationProps).onTabChange(tabId as ShareMobileTab)
+    } else {
+      ;(props as DefaultMobileNavigationProps).onTabChange(tabId)
+    }
+  }
 
   return (
     <nav
@@ -32,7 +60,7 @@ export function MobileNavigation({
             key={tab.id}
             variant="ghost"
             size="touch"
-            onClick={() => onTabChange(tab.id)}
+            onClick={() => handleTabChange(tab.id)}
             className={`
               flex-1 flex flex-col items-center justify-center gap-0.5 h-full rounded-none
               ${activeTab === tab.id
@@ -52,5 +80,3 @@ export function MobileNavigation({
     </nav>
   )
 }
-
-export type { MobileTab }
