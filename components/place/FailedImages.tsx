@@ -19,16 +19,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { CATEGORY_STYLES, PlaceCategory } from '@/lib/constants'
-import { Image } from '@/types'
+import type { Image, CreatePlaceInput } from '@/types'
 
 interface FailedImagesProps {
   images: Image[]
-  onAddPlace: (data: {
-    name: string
-    category: PlaceCategory
-    comment?: string
-    imageIds: string[]
-  }) => Promise<void>
+  onAddPlace: (data: CreatePlaceInput) => Promise<boolean>
 }
 
 export function FailedImages({ images, onAddPlace }: FailedImagesProps) {

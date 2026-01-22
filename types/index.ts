@@ -72,8 +72,8 @@ export interface CreatePlaceInput {
   name: string
   category: PlaceCategory
   comment?: string
-  latitude: number
-  longitude: number
+  latitude?: number
+  longitude?: number
   imageIds?: string[]
 }
 

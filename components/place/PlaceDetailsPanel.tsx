@@ -1,10 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import useSWR from 'swr'
 import { Button } from '@/components/ui/button'
 import { CATEGORY_STYLES } from '@/lib/constants'
 import { getPhotoUrl } from '@/lib/google-maps'
+import { usePlaceDetails } from '@/hooks/queries/usePlaceDetails'
 
 interface PlaceDetailsPanelProps {
   placeId: string
@@ -12,62 +12,11 @@ interface PlaceDetailsPanelProps {
   shareToken?: string // 공유 페이지에서 사용 시 토큰 전달
 }
 
-interface PlaceDetailsResponse {
-  hasGoogleData: boolean
-  place: {
-    id: string
-    name: string
-    category: string
-    comment: string | null
-    latitude: number
-    longitude: number
-    formattedAddress?: string | null
-    formattedPhoneNumber?: string | null
-    website?: string | null
-    openingHours?: {
-      openNow: boolean
-      weekdayText: string[]
-    } | null
-    rating?: number | null
-    userRatingsTotal?: number | null
-    priceLevel?: number | null
-    reviews?: Array<{
-      authorName: string
-      rating: number
-      text: string
-      relativeTimeDescription: string
-    }>
-    photos?: Array<{
-      photoReference: string
-      width: number
-      height: number
-    }>
-    googleMapsUrl?: string | null
-  }
-}
-
-// SWR fetcher 함수
-const fetcher = (url: string) => fetch(url).then(res => res.ok ? res.json() : null)
-
 export function PlaceDetailsPanel({ placeId, onClose, shareToken }: PlaceDetailsPanelProps) {
   const [showAllHours, setShowAllHours] = useState(false)
 
-  // API URL: 공유 모드면 공유 API, 아니면 일반 API 사용
-  const apiUrl = placeId
-    ? shareToken
-      ? `/api/share/${shareToken}/places/${placeId}/details`
-      : `/api/places/${placeId}/details`
-    : null
-
-  // SWR로 데이터 페칭 - 자동 캐싱 및 중복 요청 제거 (client-swr-dedup 패턴)
-  const { data: details, isLoading: loading } = useSWR<PlaceDetailsResponse>(
-    apiUrl,
-    fetcher,
-    {
-      revalidateOnFocus: false, // 포커스 시 재검증 비활성화
-      dedupingInterval: 60000, // 1분 동안 중복 요청 방지
-    }
-  )
+  // 공유 hooks 사용
+  const { details, isLoading: loading } = usePlaceDetails(placeId, { shareToken })
 
   if (loading) {
     return (
