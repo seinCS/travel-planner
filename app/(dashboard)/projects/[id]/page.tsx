@@ -30,6 +30,10 @@ const ShareModal = dynamic(() => import('@/components/project/ShareModal').then(
   ssr: false,
 })
 
+const PlaceSearchModal = dynamic(() => import('@/components/place/PlaceSearchModal').then(mod => mod.PlaceSearchModal), {
+  ssr: false,
+})
+
 import { PlaceList } from '@/components/place/PlaceList'
 import { InputTabs } from '@/components/input/InputTabs'
 import { TextInputList } from '@/components/input/TextInputList'
@@ -73,6 +77,7 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
     getPlacesForImage,
     processing,
     processingText,
+    deletingImages,
     processImages,
     processText,
     handleUploadComplete,
@@ -81,6 +86,7 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
     deletePlace,
     updatePlace,
     addPlace,
+    deleteImages,
   } = useProjectDetail(id)
 
   // UI state
@@ -92,6 +98,7 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
   const [editingPlace, setEditingPlace] = useState<PlaceWithPlaceImages | null>(null)
   const [isEditModalOpen, setIsEditModalOpen] = useState(false)
   const [isShareModalOpen, setIsShareModalOpen] = useState(false)
+  const [isSearchModalOpen, setIsSearchModalOpen] = useState(false)
   const [mobileTab, setMobileTab] = useState<MobileTab>('map')
   const [sidebarTab, setSidebarTab] = useState<'list' | 'input'>('list')
 
@@ -242,8 +249,32 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
           )}
 
           {mobileTab === 'list' && (
-            <div className="flex-1 bg-white rounded-lg border p-4 overflow-hidden flex flex-col">
-              <h2 className="font-semibold mb-3 flex-shrink-0">📍 장소 목록 ({places.length}개)</h2>
+            <div className="flex-1 glass-card p-4 overflow-hidden flex flex-col">
+              {/* Header with search button */}
+              <div className="flex items-center justify-between mb-3 flex-shrink-0">
+                <h2 className="font-semibold text-gray-800">📍 장소 목록 ({places.length}개)</h2>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsSearchModalOpen(true)}
+                  className="gap-1.5"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                  장소 검색
+                </Button>
+              </div>
               <div className="flex-1 min-h-0 overflow-y-auto">
                 <PlaceList
                   places={places}
@@ -293,6 +324,8 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
                     images={images}
                     onRetry={(ids) => processImages(ids)}
                     onImageClick={handleImageClick}
+                    onDeleteImages={deleteImages}
+                    isDeleting={deletingImages}
                     vertical
                   />
                 </div>
@@ -331,6 +364,9 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
               onProcessText={processText}
               onImageClick={handleImageClick}
               onAddPlace={addPlace}
+              onSearchClick={() => setIsSearchModalOpen(true)}
+              onDeleteImages={deleteImages}
+              isDeletingImages={deletingImages}
             />
           ) : (
             <ItineraryLayout
@@ -404,6 +440,17 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
           projectName={project.name}
           open={isShareModalOpen}
           onOpenChange={setIsShareModalOpen}
+        />
+      )}
+
+      {/* Place Search Modal */}
+      {project && (
+        <PlaceSearchModal
+          open={isSearchModalOpen}
+          onOpenChange={setIsSearchModalOpen}
+          locationBias={mapCenter || undefined}
+          destinationName={project.destination}
+          onAddPlace={addPlace}
         />
       )}
     </div>

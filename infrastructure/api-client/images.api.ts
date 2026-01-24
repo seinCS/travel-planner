@@ -13,6 +13,13 @@ export interface UploadResponse {
   failed: { name: string; error: string }[]
 }
 
+export interface BulkDeleteResponse {
+  deleted: string[]
+  failed: { id: string; error: string }[]
+  totalRequested: number
+  totalDeleted: number
+}
+
 export const imagesApi = {
   getByProject: (projectId: string) =>
     apiClient.get<ImagesResponse>(`/projects/${projectId}/images`),
@@ -26,6 +33,14 @@ export const imagesApi = {
 
   delete: (imageId: string) =>
     apiClient.delete<void>(`/images/${imageId}`),
+
+  /**
+   * 이미지 일괄 삭제
+   * @param projectId - 프로젝트 ID
+   * @param imageIds - 삭제할 이미지 ID 배열
+   */
+  bulkDelete: (projectId: string, imageIds: string[]) =>
+    apiClient.post<BulkDeleteResponse>(`/projects/${projectId}/images/bulk-delete`, { imageIds }),
 }
 
 export default imagesApi

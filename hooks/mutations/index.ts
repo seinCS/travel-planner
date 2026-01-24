@@ -7,6 +7,7 @@
 export * from './useProcessImages'
 export * from './useProcessText'
 export * from './usePlaceMutations'
+export * from './useImageMutations'
 
 // Itinerary-related mutations
 export * from './useItineraryMutations'

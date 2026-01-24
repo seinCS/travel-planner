@@ -10,6 +10,7 @@ import useSWR from 'swr'
 import { toast } from 'sonner'
 import type { Place, Image, TextInput, Project, CreatePlaceInput } from '@/types'
 import { geocodeDestination } from '@/lib/google-maps'
+import { imagesApi } from '@/infrastructure/api-client/images.api'
 
 interface PlaceWithPlaceImages extends Place {
   placeImages?: { imageId: string }[]
@@ -58,6 +59,7 @@ export function useProjectDetail(projectId: string) {
   // Processing state
   const [processing, setProcessing] = useState(false)
   const [processingText, setProcessingText] = useState(false)
+  const [deletingImages, setDeletingImages] = useState(false)
 
   // Map center state
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null)
@@ -269,6 +271,33 @@ export function useProjectDetail(projectId: string) {
     [projectId, mutatePlaces, mutateProject]
   )
 
+  const deleteImages = useCallback(
+    async (imageIds: string[]): Promise<void> => {
+      if (imageIds.length === 0) return
+
+      setDeletingImages(true)
+      try {
+        const result = await imagesApi.bulkDelete(projectId, imageIds)
+
+        if (result.totalDeleted > 0) {
+          toast.success(`${result.totalDeleted}개 이미지가 삭제되었습니다.`)
+        }
+        if (result.failed.length > 0) {
+          toast.error(`${result.failed.length}개 이미지 삭제 실패`)
+        }
+
+        await Promise.all([mutateProject(), mutatePlaces()])
+      } catch (error) {
+        console.error('Failed to delete images:', error)
+        toast.error('이미지 삭제에 실패했습니다.')
+        throw error
+      } finally {
+        setDeletingImages(false)
+      }
+    },
+    [projectId, mutateProject, mutatePlaces]
+  )
+
   return {
     // Data
     project,
@@ -289,6 +318,7 @@ export function useProjectDetail(projectId: string) {
     // Processing state
     processing,
     processingText,
+    deletingImages,
 
     // Actions
     processImages,
@@ -299,6 +329,7 @@ export function useProjectDetail(projectId: string) {
     deletePlace,
     updatePlace,
     addPlace,
+    deleteImages,
 
     // Revalidation
     mutateProject,
