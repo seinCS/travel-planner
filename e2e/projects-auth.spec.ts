@@ -3,24 +3,29 @@ import { test, expect, TEST_PROJECT, TEST_USER } from './fixtures/auth'
 test.describe('프로젝트 목록 페이지 (/projects) - 인증된 상태', () => {
   test('페이지 제목이 표시된다', async ({ projectsPage }) => {
     await projectsPage.goto('/projects')
-    await expect(projectsPage.getByRole('heading', { name: '내 여행 프로젝트' })).toBeVisible()
+    // Wait for page to fully load
+    await projectsPage.waitForLoadState('networkidle')
+    await expect(projectsPage.getByRole('heading', { name: '내 여행 프로젝트' })).toBeVisible({ timeout: 10000 })
   })
 
   test('서브 설명이 표시된다', async ({ projectsPage }) => {
     await projectsPage.goto('/projects')
-    await expect(projectsPage.getByText(/SNS 스크린샷을 업로드하여/)).toBeVisible()
+    await projectsPage.waitForLoadState('networkidle')
+    await expect(projectsPage.getByText(/SNS 스크린샷을 업로드하여/)).toBeVisible({ timeout: 10000 })
   })
 
   test('새 프로젝트 버튼이 표시된다', async ({ projectsPage }) => {
     await projectsPage.goto('/projects')
-    await expect(projectsPage.getByRole('button', { name: /새 프로젝트/ })).toBeVisible()
+    await projectsPage.waitForLoadState('networkidle')
+    await expect(projectsPage.getByRole('button', { name: /새 프로젝트/ })).toBeVisible({ timeout: 10000 })
   })
 
   test('프로젝트 카드가 표시된다', async ({ projectsPage }) => {
     await projectsPage.goto('/projects')
+    await projectsPage.waitForLoadState('networkidle')
 
     // 프로젝트 이름 확인
-    await expect(projectsPage.getByText(TEST_PROJECT.name)).toBeVisible()
+    await expect(projectsPage.getByText(TEST_PROJECT.name)).toBeVisible({ timeout: 10000 })
 
     // 여행지,국가 확인
     await expect(projectsPage.getByText(`${TEST_PROJECT.destination}, ${TEST_PROJECT.country}`)).toBeVisible()
