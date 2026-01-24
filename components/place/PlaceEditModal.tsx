@@ -20,6 +20,8 @@ import {
 } from '@/components/ui/select'
 import { Place } from '@/types'
 import { CATEGORY_STYLES, PlaceCategory } from '@/lib/constants'
+import { placesApi } from '@/infrastructure/api-client/places.api'
+import { ApiError } from '@/infrastructure/api-client'
 
 interface PlaceEditModalProps {
   place: Place | null
@@ -62,26 +64,19 @@ export function PlaceEditModal({
     setError(null)
 
     try {
-      const res = await fetch(`/api/places/${place.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name,
-          category,
-          comment: comment || null,
-        }),
+      const updated = await placesApi.update(place.id, {
+        name,
+        category,
+        comment: comment || undefined,
       })
-
-      if (res.ok) {
-        const updated = await res.json()
-        onSave(updated)
-        onOpenChange(false)
+      onSave(updated)
+      onOpenChange(false)
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message || '저장에 실패했습니다.')
       } else {
-        const data = await res.json()
-        setError(data.error || '저장에 실패했습니다.')
+        setError('저장 중 오류가 발생했습니다.')
       }
-    } catch {
-      setError('저장 중 오류가 발생했습니다.')
     } finally {
       setSaving(false)
     }
@@ -94,23 +89,16 @@ export function PlaceEditModal({
     setError(null)
 
     try {
-      const res = await fetch(`/api/places/${place.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ searchQuery }),
-      })
-
-      if (res.ok) {
-        const data = await res.json()
-        onSave(data.place)
-        setShowRelocate(false)
-        setSearchQuery('')
+      const updated = await placesApi.relocate(place.id, searchQuery)
+      onSave(updated)
+      setShowRelocate(false)
+      setSearchQuery('')
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message || '위치 검색에 실패했습니다.')
       } else {
-        const data = await res.json()
-        setError(data.error || '위치 검색에 실패했습니다.')
+        setError('위치 검색 중 오류가 발생했습니다.')
       }
-    } catch {
-      setError('위치 검색 중 오류가 발생했습니다.')
     } finally {
       setRelocating(false)
     }

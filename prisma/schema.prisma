@@ -17,6 +17,7 @@ model User {
   accounts      Account[]
   sessions      Session[]
   projects      Project[]
+  memberOf      ProjectMember[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -66,15 +67,22 @@ model Project {
   shareToken   String?   @unique
   shareEnabled Boolean   @default(false)
 
+  // 초대 기능
+  inviteToken   String?  @unique
+  inviteEnabled Boolean  @default(false)
+
   user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   images      Image[]
   places      Place[]
   textInputs  TextInput[]
+  members     ProjectMember[]
+  itinerary   Itinerary?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
   @@index([userId])
   @@index([shareToken])
+  @@index([inviteToken])
 }
 
 model Image {
@@ -113,6 +121,7 @@ model Place {
   project          Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   placeImages      PlaceImage[]
   placeTextInputs  PlaceTextInput[]
+  itineraryItems   ItineraryItem[]
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
 
@@ -160,4 +169,120 @@ model PlaceTextInput {
   @@unique([placeId, textInputId])
   @@index([placeId])
   @@index([textInputId])
+}
+
+// ========== 프로젝트 멤버십 ==========
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  role      String   @default("member") // "owner" | "member"
+
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  joinedAt DateTime @default(now())
+
+  @@unique([projectId, userId])
+  @@index([projectId])
+  @@index([userId])
+}
+
+// ========== 일정 ==========
+
+model Itinerary {
+  id        String   @id @default(cuid())
+  projectId String   @unique
+  title     String?
+  startDate DateTime
+  endDate   DateTime
+
+  project        Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  days           ItineraryDay[]
+  flights        Flight[]
+  accommodations Accommodation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+}
+
+model ItineraryDay {
+  id          String @id @default(cuid())
+  itineraryId String
+  dayNumber   Int
+  date        DateTime
+
+  itinerary Itinerary       @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
+  items     ItineraryItem[]
+
+  @@unique([itineraryId, dayNumber])
+  @@index([itineraryId])
+}
+
+model ItineraryItem {
+  id              String  @id @default(cuid())
+  dayId           String
+  placeId         String?
+  accommodationId String?
+  itemType        String  @default("place") // "place" | "accommodation_checkin" | "accommodation_checkout" | "accommodation_stay"
+  order           Int
+  startTime       String? // "HH:mm" format
+  note            String?
+
+  day           ItineraryDay   @relation(fields: [dayId], references: [id], onDelete: Cascade)
+  place         Place?         @relation(fields: [placeId], references: [id], onDelete: Cascade)
+  accommodation Accommodation? @relation(fields: [accommodationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dayId])
+  @@index([placeId])
+  @@index([accommodationId])
+}
+
+// ========== 항공편 ==========
+
+model Flight {
+  id            String    @id @default(cuid())
+  itineraryId   String
+  departureCity String
+  arrivalCity   String
+  airline       String?
+  flightNumber  String?
+  departureDate DateTime
+  arrivalDate   DateTime?
+  note          String?
+
+  itinerary Itinerary @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([itineraryId])
+}
+
+// ========== 숙소 ==========
+
+model Accommodation {
+  id          String   @id @default(cuid())
+  itineraryId String
+  name        String
+  address     String?
+  latitude    Float?
+  longitude   Float?
+  checkIn     DateTime
+  checkOut    DateTime
+  note        String?
+
+  itinerary      Itinerary       @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
+  itineraryItems ItineraryItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([itineraryId])
 }

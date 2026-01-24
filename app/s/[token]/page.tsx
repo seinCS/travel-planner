@@ -96,7 +96,8 @@ export default function SharePage({ params }: SharePageProps) {
           const json = await res.json()
           setError(json.error || '공유 페이지를 불러올 수 없습니다.')
         }
-      } catch {
+      } catch (err) {
+        console.error('Failed to fetch shared project:', err)
         setError('네트워크 오류가 발생했습니다.')
       } finally {
         setLoading(false)
@@ -127,7 +128,8 @@ export default function SharePage({ params }: SharePageProps) {
         const json = await res.json()
         toast.error(json.error || '복사에 실패했습니다.')
       }
-    } catch {
+    } catch (err) {
+      console.error('Failed to clone project:', err)
       toast.error('네트워크 오류가 발생했습니다.')
     } finally {
       setCloning(false)

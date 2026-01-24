@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { SUPPORTED_IMAGE_TYPES, MAX_IMAGE_SIZE, MAX_UPLOAD_COUNT } from '@/lib/constants'
+import { imagesApi } from '@/infrastructure/api-client/images.api'
 
 interface ImageUploaderProps {
   projectId: string
@@ -123,31 +124,20 @@ export function ImageUploader({ projectId, onUploadComplete, disabled }: ImageUp
           formData.append('files', file)
         })
 
-        const res = await fetch(`/api/projects/${projectId}/images`, {
-          method: 'POST',
-          body: formData,
-        })
+        const data = await imagesApi.upload(projectId, formData)
 
         setProgress(90)
 
-        if (res.ok) {
-          const data = await res.json()
-          console.log('Upload result:', data)
-          const uploadedCount = data.uploaded?.length || 0
-          const failedCount = data.failed?.length || 0
+        const uploadedCount = data.uploaded?.length || 0
+        const failedCount = data.failed?.length || 0
 
-          setProgress(100)
-          setStatusText('완료!')
+        setProgress(100)
+        setStatusText('완료!')
 
-          // 약간의 딜레이 후 콜백 호출
-          setTimeout(() => {
-            onUploadComplete(uploadedCount, failedCount)
-          }, 300)
-        } else {
-          const errorData = await res.json().catch(() => ({}))
-          console.error('Upload API error:', res.status, errorData)
-          onUploadComplete(0, validFiles.length)
-        }
+        // 약간의 딜레이 후 콜백 호출
+        setTimeout(() => {
+          onUploadComplete(uploadedCount, failedCount)
+        }, 300)
       } catch (error) {
         console.error('Upload failed:', error)
         onUploadComplete(0, validFiles.length)
