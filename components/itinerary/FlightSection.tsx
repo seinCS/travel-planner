@@ -156,7 +156,8 @@ export function FlightSection({
         toast.success('항공편이 추가되었습니다.')
       }
       handleClose()
-    } catch {
+    } catch (err) {
+      console.error('Failed to save flight:', err)
       toast.error(editingFlight ? '항공편 수정에 실패했습니다.' : '항공편 추가에 실패했습니다.')
     } finally {
       setIsSubmitting(false)
@@ -169,7 +170,8 @@ export function FlightSection({
     try {
       await onDeleteFlight(flightId)
       toast.success('항공편이 삭제되었습니다.')
-    } catch {
+    } catch (err) {
+      console.error('Failed to delete flight:', err)
       toast.error('항공편 삭제에 실패했습니다.')
     }
   }, [onDeleteFlight])

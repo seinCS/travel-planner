@@ -174,7 +174,8 @@ export function AccommodationSection({
         toast.success('숙소가 추가되었습니다.')
       }
       handleClose()
-    } catch {
+    } catch (err) {
+      console.error('Failed to save accommodation:', err)
       toast.error(editingAccommodation ? '숙소 수정에 실패했습니다.' : '숙소 추가에 실패했습니다.')
     } finally {
       setIsSubmitting(false)
@@ -187,7 +188,8 @@ export function AccommodationSection({
     try {
       await onDeleteAccommodation(accommodationId)
       toast.success('숙소가 삭제되었습니다.')
-    } catch {
+    } catch (err) {
+      console.error('Failed to delete accommodation:', err)
       toast.error('숙소 삭제에 실패했습니다.')
     }
   }, [onDeleteAccommodation])

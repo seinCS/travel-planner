@@ -55,10 +55,9 @@ test.describe('E2E-2: 터치/클릭 영역 테스트', () => {
       })
     }
 
-    // 최소 50%의 버튼이 기준을 통과해야 함 (현재 UI 개선 전)
-    // TODO: 모바일 UI 개선 후 70%로 상향 조정
+    // 최소 70%의 버튼이 기준을 통과해야 함 (모바일 UI 개선 완료)
     const passRate = results.filter(r => r.pass).length / results.length
-    expect(passRate).toBeGreaterThanOrEqual(0.5)
+    expect(passRate).toBeGreaterThanOrEqual(0.7)
   })
 
   test('E2E-2.2: 장소 목록 아이템이 터치하기 적절한 크기를 가진다', async ({ projectDetailPage }) => {
@@ -120,9 +119,8 @@ test.describe('E2E-2: 터치/클릭 영역 테스트', () => {
 
     // 모든 탭이 기준을 만족하거나, 탭이 없으면 pass
     if (totalCount > 0) {
-      // 현재 UI에서는 32px이므로, 개선 전까지는 관대하게 처리
-      // TODO: 모바일 UI 개선 후 모든 탭이 44px 이상이어야 함
-      expect(passCount).toBeGreaterThanOrEqual(0)
+      // 모바일 UI 개선 완료 - 대부분의 탭이 적절한 크기여야 함
+      expect(passCount).toBeGreaterThanOrEqual(Math.floor(totalCount * 0.5))
     }
   })
 
@@ -149,7 +147,6 @@ test.describe('E2E-2: 터치/클릭 영역 테스트', () => {
 })
 
 test.describe('NFR-1.1: WCAG 터치 타겟 기준 검사', () => {
-  // TODO: 모바일 UI 개선 후 기준 상향 - 현재는 많은 버튼이 44px 미만
   test('주요 인터랙션 요소가 44x44px 이상이다', async ({ projectDetailPage }) => {
     const viewport = projectDetailPage.viewportSize()
 
@@ -187,9 +184,8 @@ test.describe('NFR-1.1: WCAG 터치 타겟 기준 검사', () => {
       const complianceRate = wcagCompliant / total
       console.log(`WCAG 터치 타겟 준수율: ${Math.round(complianceRate * 100)}% (${wcagCompliant}/${total})`)
 
-      // 현재 UI 개선 전이므로 0% 이상 허용 (로깅 목적)
-      // TODO: 모바일 UI 개선 후 50%로 상향
-      expect(complianceRate).toBeGreaterThanOrEqual(0)
+      // 모바일 UI 개선 완료 - 최소 50% 준수율 요구
+      expect(complianceRate).toBeGreaterThanOrEqual(0.5)
     }
   })
 })

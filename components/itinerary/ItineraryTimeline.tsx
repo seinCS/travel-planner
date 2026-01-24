@@ -126,8 +126,9 @@ export function ItineraryTimeline({
 
       try {
         await onReorderItems(updates)
-      } catch {
+      } catch (err) {
         // Rollback on error - restore original order
+        console.error('Failed to reorder items:', err)
         setLocalItems(originalItems)
       }
     },

@@ -13,11 +13,11 @@
 | **Phase 2** | 일정 기본 기능 | 1주 | ✅ 완료 | 100% |
 | **Phase 3** | 드래그앤드롭 | 1주 | ✅ 완료 | 100% |
 | **Phase 4** | 항공/숙소 | 0.5주 | ✅ 완료 | 100% |
-| **Phase 5** | 멤버십 | 1주 | 🔶 부분 | 30% |
+| **Phase 5** | 멤버십 | 1주 | ✅ 완료 | 100% |
 | **Phase 6** | 실시간 협업 | 1주 | ❌ 미시작 | 0% |
 | **Phase 7** | 공유 확장 | 0.5주 | ❌ 미시작 | 0% |
 
-**전체 진행률**: 약 62% (Phase 1~4 완료, Phase 5 부분 완료)
+**전체 진행률**: 약 71% (Phase 1~5 완료)
 
 ---
 
@@ -88,11 +88,7 @@
 
 ---
 
-## 3. 진행 중 / 부분 완료
-
-### Phase 5: 멤버십 🔶 (30%)
-
-**완료된 부분**:
+### Phase 5: 멤버십 ✅
 
 | 작업 항목 | 파일/위치 | 상태 |
 |-----------|-----------|------|
@@ -102,25 +98,19 @@
 | members.api.ts API 클라이언트 | `infrastructure/api-client/members.api.ts` | ✅ |
 | useMembers.ts 훅 | `hooks/queries/useMembers.ts` | ✅ |
 | useMemberMutations.ts 훅 | `hooks/mutations/useMemberMutations.ts` | ✅ |
-
-**미완료**:
-
-| 작업 항목 | 예상 파일/위치 | 상태 |
-|-----------|----------------|------|
-| 멤버 목록 API | `app/api/projects/[id]/members/route.ts` | ❌ |
-| 멤버 삭제 API | `app/api/projects/[id]/members/[userId]/route.ts` | ❌ |
-| 초대 링크 생성 API | `app/api/projects/[id]/invite/route.ts` | ❌ |
-| 초대 정보 조회 API | `app/api/invite/[token]/route.ts` | ❌ |
-| 초대 수락 API | `app/api/invite/[token]/accept/route.ts` | ❌ |
-| 프로젝트 탈퇴 API | `app/api/projects/[id]/leave/route.ts` | ❌ |
-| 소유권 이전 API | `app/api/projects/[id]/transfer/route.ts` | ❌ |
-| MembersPanel 컴포넌트 | `components/members/MembersPanel.tsx` | ❌ |
-| 초대 수락 페이지 | `app/invite/[token]/page.tsx` | ❌ |
-| 권한 체크 미들웨어 | `lib/auth-middleware.ts` | ❌ |
+| 멤버 목록 API | `app/api/projects/[id]/members/route.ts` | ✅ |
+| 멤버 삭제 API | `app/api/projects/[id]/members/[userId]/route.ts` | ✅ |
+| 초대 링크 생성 API | `app/api/projects/[id]/invites/route.ts` | ✅ |
+| 초대 정보 조회 API | `app/api/invites/[token]/route.ts` | ✅ |
+| 초대 수락 API | `app/api/invites/[token]/accept/route.ts` | ✅ |
+| 프로젝트 탈퇴 API | `app/api/projects/[id]/members/leave/route.ts` | ✅ |
+| 소유권 이전 API | `app/api/projects/[id]/members/transfer/route.ts` | ✅ |
+| MembersPanel 컴포넌트 | `components/members/MembersPanel.tsx` | ✅ |
+| 초대 수락 페이지 | `app/invite/[token]/page.tsx` | ✅ |
 
 ---
 
-## 4. 미시작
+## 3. 미시작
 
 ### Phase 6: 실시간 협업 ❌
 

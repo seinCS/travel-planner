@@ -8,8 +8,7 @@ import { Button } from '@/components/ui/button'
 import { ItineraryDayTabs } from './ItineraryDayTabs'
 import { ItineraryTimeline } from './ItineraryTimeline'
 import { ItineraryCreateForm } from './ItineraryCreateForm'
-import { FlightSection } from './FlightSection'
-import { AccommodationSection } from './AccommodationSection'
+import { ResourceSection } from './ResourceSection'
 import { TravelSummaryBar } from './TravelSummaryBar'
 import { useItinerary } from '@/hooks/queries/useItinerary'
 import { useItineraryMutations } from '@/hooks/mutations/useItineraryMutations'
@@ -329,22 +328,24 @@ export function ItineraryView({
 
       {/* Desktop: Collapsible sections */}
       <div className="flex-shrink-0 border-b p-4 space-y-4 hidden md:block">
-        <FlightSection
-          flights={itinerary.flights || []}
+        <ResourceSection
+          type="flight"
+          items={itinerary.flights || []}
           itineraryId={itinerary.id}
-          onAddFlight={handleAddFlight}
-          onUpdateFlight={handleUpdateFlight}
-          onDeleteFlight={handleDeleteFlight}
+          onAdd={handleAddFlight}
+          onUpdate={handleUpdateFlight}
+          onDelete={handleDeleteFlight}
           isLoading={mutationLoading}
           defaultExpanded={false}
         />
-        <AccommodationSection
-          accommodations={itinerary.accommodations || []}
+        <ResourceSection
+          type="accommodation"
+          items={itinerary.accommodations || []}
           itineraryId={itinerary.id}
           places={places}
-          onAddAccommodation={handleAddAccommodation}
-          onUpdateAccommodation={handleUpdateAccommodation}
-          onDeleteAccommodation={handleDeleteAccommodation}
+          onAdd={handleAddAccommodation}
+          onUpdate={handleUpdateAccommodation}
+          onDelete={handleDeleteAccommodation}
           isLoading={mutationLoading}
           defaultExpanded={false}
         />

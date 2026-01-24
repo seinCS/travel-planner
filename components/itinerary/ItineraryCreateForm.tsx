@@ -51,7 +51,8 @@ export function ItineraryCreateForm({
 
     try {
       await onSubmit(startDate, endDate, title || undefined)
-    } catch {
+    } catch (err) {
+      console.error('Failed to create itinerary:', err)
       setError('일정 생성에 실패했습니다.')
     }
   }
