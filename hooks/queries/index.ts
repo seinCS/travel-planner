@@ -9,6 +9,7 @@ export * from './usePlaces'
 export * from './useImages'
 export * from './useTextInputs'
 export * from './usePlaceDetails'
+export * from './usePlaceSearch'
 
 // Itinerary-related hooks
 export * from './useItinerary'

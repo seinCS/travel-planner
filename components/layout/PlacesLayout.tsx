@@ -7,12 +7,13 @@ import { TextInputList } from '@/components/input/TextInputList'
 import { ImageList } from '@/components/upload/ImageList'
 import { FailedImages } from '@/components/place/FailedImages'
 import { ResponsiveSidebar } from '@/components/layout/ResponsiveSidebar'
+import { Button } from '@/components/ui/button'
 import type { Place, Image, TextInput, CreatePlaceInput } from '@/types'
 
 const GoogleMap = dynamic(() => import('@/components/map/GoogleMap').then(mod => mod.GoogleMap), {
   ssr: false,
   loading: () => (
-    <div className="h-full w-full bg-gray-100 animate-pulse rounded-lg flex items-center justify-center">
+    <div className="h-full w-full bg-white/40 animate-pulse rounded-2xl flex items-center justify-center backdrop-blur-sm">
       <span className="text-muted-foreground">지도 로딩 중...</span>
     </div>
   ),
@@ -49,6 +50,12 @@ interface PlacesLayoutProps {
   onProcessText: (ids?: string[]) => void
   onImageClick: (image: Image) => void
   onAddPlace: (data: CreatePlaceInput) => Promise<boolean>
+  /** Called when search button is clicked */
+  onSearchClick?: () => void
+  /** Called when images need to be deleted */
+  onDeleteImages?: (imageIds: string[]) => Promise<void>
+  /** Whether images are being deleted */
+  isDeletingImages?: boolean
 }
 
 export function PlacesLayout({
@@ -78,12 +85,15 @@ export function PlacesLayout({
   onProcessText,
   onImageClick,
   onAddPlace,
+  onSearchClick,
+  onDeleteImages,
+  isDeletingImages = false,
 }: PlacesLayoutProps) {
   return (
     <>
       {/* 데스크탑 (≥1024px): 3컬럼 */}
-      <div className="hidden lg:grid grid-cols-[2fr_1fr_280px] gap-4 h-full">
-        <div className="bg-white rounded-lg border overflow-hidden min-h-[400px]">
+      <div className="hidden lg:grid grid-cols-[2fr_1fr_280px] gap-5 h-full">
+        <div className="glass-card overflow-hidden min-h-[400px]">
           <GoogleMap
             places={places}
             selectedPlaceId={selectedPlaceId}
@@ -93,8 +103,34 @@ export function PlacesLayout({
           />
         </div>
 
-        <div className="bg-white rounded-lg border p-4 overflow-hidden h-full flex flex-col">
-          <h2 className="font-semibold mb-3 flex-shrink-0">📍 장소 목록 ({places.length}개)</h2>
+        <div className="glass-card p-5 overflow-hidden h-full flex flex-col">
+          {/* Header with search button */}
+          <div className="flex items-center justify-between mb-4 flex-shrink-0">
+            <h2 className="font-semibold text-gray-800">📍 장소 목록 ({places.length}개)</h2>
+            {onSearchClick && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onSearchClick}
+                className="gap-1.5"
+              >
+                <svg
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+                장소 검색
+              </Button>
+            )}
+          </div>
           <div className="flex-1 min-h-0 overflow-hidden">
             <PlaceList
               places={places}
@@ -115,7 +151,7 @@ export function PlacesLayout({
         </div>
 
         <div className="flex flex-col gap-4 overflow-hidden h-full">
-          <div className="bg-white rounded-lg border p-3">
+          <div className="glass-card p-4">
             <InputTabs
               projectId={projectId}
               onImageUploadComplete={onImageUploadComplete}
@@ -124,7 +160,7 @@ export function PlacesLayout({
             />
           </div>
           {textInputs.length > 0 && (
-            <div className="bg-white rounded-lg border p-3">
+            <div className="glass-card p-4">
               <TextInputList
                 textInputs={textInputs}
                 onDelete={onDeleteTextInput}
@@ -134,11 +170,13 @@ export function PlacesLayout({
             </div>
           )}
           {images.length > 0 && (
-            <div className="bg-white rounded-lg border p-3 flex-1 overflow-hidden">
+            <div className="glass-card p-4 flex-1 overflow-hidden">
               <ImageList
                 images={images}
                 onRetry={(ids) => onProcessImages(ids)}
                 onImageClick={onImageClick}
+                onDeleteImages={onDeleteImages}
+                isDeleting={isDeletingImages}
                 vertical
               />
             </div>
@@ -147,8 +185,8 @@ export function PlacesLayout({
       </div>
 
       {/* 태블릿 (640-1023px): 2컬럼 */}
-      <div className="hidden sm:grid lg:hidden grid-cols-[1fr_320px] gap-4 h-full">
-        <div className="bg-white rounded-lg border overflow-hidden min-h-[400px]">
+      <div className="hidden sm:grid lg:hidden grid-cols-[1fr_320px] gap-5 h-full">
+        <div className="glass-card overflow-hidden min-h-[400px]">
           <GoogleMap
             places={places}
             selectedPlaceId={selectedPlaceId}
@@ -166,6 +204,32 @@ export function PlacesLayout({
         >
           {sidebarTab === 'list' ? (
             <div className="p-4 h-full flex flex-col">
+              {/* Header with search button for tablet */}
+              {onSearchClick && (
+                <div className="flex items-center justify-end mb-3 flex-shrink-0">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={onSearchClick}
+                    className="gap-1.5"
+                  >
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                      />
+                    </svg>
+                    장소 검색
+                  </Button>
+                </div>
+              )}
               <PlaceList
                 places={places}
                 selectedPlaceId={selectedPlaceId}
@@ -204,6 +268,8 @@ export function PlacesLayout({
                     images={images}
                     onRetry={(ids) => onProcessImages(ids)}
                     onImageClick={onImageClick}
+                    onDeleteImages={onDeleteImages}
+                    isDeleting={isDeletingImages}
                     vertical
                   />
                 </div>

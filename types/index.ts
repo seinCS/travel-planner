@@ -75,6 +75,13 @@ export interface CreatePlaceInput {
   latitude?: number
   longitude?: number
   imageIds?: string[]
+  // Google Place data (from search)
+  googlePlaceId?: string
+  formattedAddress?: string
+  googleMapsUrl?: string
+  rating?: number | null
+  userRatingsTotal?: number | null
+  priceLevel?: number | null
 }
 
 export interface UpdatePlaceInput {

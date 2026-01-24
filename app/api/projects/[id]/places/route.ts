@@ -12,6 +12,13 @@ const createPlaceSchema = z.object({
   latitude: z.number().optional(),
   longitude: z.number().optional(),
   imageIds: z.array(z.string()).optional(),
+  // Google Place data (from search)
+  googlePlaceId: z.string().optional(),
+  formattedAddress: z.string().optional(),
+  googleMapsUrl: z.string().optional(),
+  rating: z.number().nullable().optional(),
+  userRatingsTotal: z.number().nullable().optional(),
+  priceLevel: z.number().nullable().optional(),
 })
 
 // GET /api/projects/[id]/places - 장소 목록 조회
@@ -113,6 +120,13 @@ export async function POST(
         latitude,
         longitude,
         status: 'manual',
+        // Google Place data (from search)
+        googlePlaceId: validated.googlePlaceId,
+        formattedAddress: validated.formattedAddress,
+        googleMapsUrl: validated.googleMapsUrl,
+        rating: validated.rating,
+        userRatingsTotal: validated.userRatingsTotal,
+        priceLevel: validated.priceLevel,
       },
     })
 

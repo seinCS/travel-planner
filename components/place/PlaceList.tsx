@@ -49,7 +49,7 @@ export function PlaceList({
   return (
     <div className="h-full flex flex-col">
       {/* 카테고리 필터 */}
-      <div className="flex flex-wrap gap-2 mb-4 flex-shrink-0">
+      <div className="flex flex-wrap gap-2 pb-4 flex-shrink-0">
         <Button
           size="sm"
           variant={categoryFilter === null ? 'default' : 'outline'}
@@ -77,8 +77,11 @@ export function PlaceList({
         })}
       </div>
 
+      {/* 구분선 */}
+      <div className="border-t border-gray-200/60 mb-4 flex-shrink-0" />
+
       {/* 장소 목록 */}
-      <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-2 scrollbar-thin pr-1">
         {filteredPlaces.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             {places.length === 0 ? '아직 장소가 없습니다.' : '해당 카테고리에 장소가 없습니다.'}
@@ -92,8 +95,11 @@ export function PlaceList({
               <div
                 key={place.id}
                 className={`
-                  p-3 rounded-lg border cursor-pointer transition-all
-                  ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}
+                  p-3.5 rounded-xl cursor-pointer transition-all duration-200
+                  backdrop-blur-sm
+                  ${isSelected
+                    ? 'bg-blue-50/80 border border-blue-400/60 shadow-[0_2px_8px_oklch(0.6_0.2_250/15%)]'
+                    : 'bg-white/60 border border-white/40 hover:bg-white/80 hover:border-gray-200/60 hover:shadow-[0_2px_8px_oklch(0_0_0/8%)]'}
                 `}
                 onClick={() => onPlaceSelect(place.id)}
               >
