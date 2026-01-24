@@ -42,9 +42,19 @@ export async function GET(
     console.log('[Itinerary GET] projectId:', id, 'userId:', session.user.id)
 
     // Verify project ownership
-    const project = await prisma.project.findFirst({
-      where: { id, userId: session.user.id },
-    })
+    console.log('[Itinerary GET] Starting project query...')
+    const startTime = Date.now()
+    let project
+    try {
+      project = await prisma.project.findFirst({
+        where: { id, userId: session.user.id },
+      })
+      console.log('[Itinerary GET] Project query completed in', Date.now() - startTime, 'ms')
+    } catch (dbError) {
+      console.error('[Itinerary GET] Project query failed after', Date.now() - startTime, 'ms')
+      console.error('[Itinerary GET] DB Error:', dbError instanceof Error ? dbError.message : String(dbError))
+      throw dbError
+    }
 
     if (!project) {
       console.log('[Itinerary GET] Project not found for id:', id)
@@ -142,8 +152,15 @@ export async function GET(
       }, { status: 500 })
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    console.error('[Itinerary GET] Unexpected error:', errorMessage)
+    console.error('[Itinerary GET] Unexpected error caught!')
+    console.error('[Itinerary GET] Error type:', typeof error)
+    console.error('[Itinerary GET] Error constructor:', error?.constructor?.name)
+    if (error instanceof Error) {
+      console.error('[Itinerary GET] Error message:', error.message)
+      console.error('[Itinerary GET] Error stack:', error.stack)
+    } else {
+      console.error('[Itinerary GET] Error value:', JSON.stringify(error))
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
