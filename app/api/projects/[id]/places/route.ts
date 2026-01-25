@@ -73,13 +73,11 @@ export async function GET(
     const places = placesResult.value
 
     // failedImages 조회 실패는 로깅 후 빈 배열로 대체 (부수적 데이터)
+    if (failedImagesResult.status === 'rejected') {
+      console.error('Failed to fetch failed images (non-critical):', failedImagesResult.reason)
+    }
     const failedImages =
-      failedImagesResult.status === 'fulfilled'
-        ? failedImagesResult.value
-        : (() => {
-            console.error('Failed to fetch failed images (non-critical):', failedImagesResult.reason)
-            return []
-          })()
+      failedImagesResult.status === 'fulfilled' ? failedImagesResult.value : []
 
     return NextResponse.json({ places, failedImages })
   } catch (error) {

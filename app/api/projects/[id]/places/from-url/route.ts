@@ -9,13 +9,8 @@ import {
   isGoogleMapsUrl,
   type ParsedGoogleMapsUrl,
 } from '@/lib/google-maps-parser'
-import { getPlaceDetails } from '@/lib/google-maps'
+import { getPlaceDetails, getServerApiKey } from '@/lib/google-maps'
 import { API_ERRORS, type PlaceCategory } from '@/lib/constants'
-
-// 서버 전용 API 키 (없으면 public 키 fallback)
-// TODO: NEXT_PUBLIC_ fallback은 2026-03-01까지 유지 후 제거 예정
-const getGoogleApiKey = () =>
-  process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
 const fromUrlSchema = z.object({
   url: z.string().url(),
@@ -48,7 +43,7 @@ async function getPlaceFromPlaceId(placeId: string): Promise<PlacePreviewData | 
 
   // Extract coordinates from the Google Maps URL or fetch via geocoding
   // For now, we'll use the Places API to get full details
-  const apiKey = getGoogleApiKey()
+  const apiKey = getServerApiKey()
   if (!apiKey) return null
 
   // Get place geometry using Place Details API
@@ -88,7 +83,7 @@ async function searchPlaceByNameAndCoords(
   lat: number,
   lng: number
 ): Promise<PlacePreviewData | null> {
-  const apiKey = getGoogleApiKey()
+  const apiKey = getServerApiKey()
   if (!apiKey) return null
 
   // Use nearby search with the name as keyword
@@ -142,7 +137,7 @@ async function reverseGeocodeCoords(
   lat: number,
   lng: number
 ): Promise<PlacePreviewData | null> {
-  const apiKey = getGoogleApiKey()
+  const apiKey = getServerApiKey()
   if (!apiKey) return null
 
   const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`

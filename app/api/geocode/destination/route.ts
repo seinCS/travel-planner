@@ -40,16 +40,21 @@ function getClientIp(request: NextRequest): string {
   return 'unknown'
 }
 
+// IP 추출 실패 시 더 엄격한 제한 (분당 5회)
+const UNKNOWN_IP_RATE_LIMIT = 5
+
 function checkRateLimit(ip: string): boolean {
   const now = Date.now()
   const record = rateLimitMap.get(ip)
+  // IP 추출 실패 시 더 엄격한 제한 적용
+  const limit = ip === 'unknown' ? UNKNOWN_IP_RATE_LIMIT : RATE_LIMIT
 
   if (!record || now > record.resetTime) {
     rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_WINDOW })
     return true
   }
 
-  if (record.count >= RATE_LIMIT) {
+  if (record.count >= limit) {
     return false
   }
 

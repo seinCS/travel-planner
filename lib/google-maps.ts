@@ -58,7 +58,7 @@ export async function geocodeDestination(
  * 서버 전용 Google Maps API 키 가져오기
  * TODO: NEXT_PUBLIC_ fallback은 2026-03-01까지 유지 후 제거 예정
  */
-function getServerApiKey(): string | undefined {
+export function getServerApiKey(): string | undefined {
   return process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 }
 
@@ -374,5 +374,9 @@ export async function getPlaceDetails(placeId: string): Promise<PlaceDetails | n
  */
 export function getPhotoUrl(photoReference: string, maxWidth: number = 400): string {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+  if (!apiKey) {
+    console.error('Google Maps API key not configured for photo URL')
+    return ''
+  }
   return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=${maxWidth}&photo_reference=${photoReference}&key=${apiKey}`
 }
