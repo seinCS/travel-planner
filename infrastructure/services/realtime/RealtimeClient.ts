@@ -15,6 +15,43 @@ import {
 } from '@/types/realtime'
 
 /**
+ * Type guard for PresenceState validation
+ * Validates that an unknown object conforms to PresenceState interface
+ */
+function isPresenceState(obj: unknown): obj is PresenceState {
+  if (typeof obj !== 'object' || obj === null) {
+    return false
+  }
+
+  const presence = obj as Record<string, unknown>
+
+  return (
+    typeof presence.id === 'string' &&
+    typeof presence.name === 'string' &&
+    typeof presence.email === 'string' &&
+    (presence.image === null || typeof presence.image === 'string') &&
+    typeof presence.onlineAt === 'string'
+  )
+}
+
+/**
+ * Get and validate Supabase credentials from environment
+ * @throws Error if credentials are not configured
+ */
+function getSupabaseCredentials(): { url: string; anonKey: string } {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error(
+      'Supabase credentials not configured. Please set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables.'
+    )
+  }
+
+  return { url: supabaseUrl, anonKey: supabaseAnonKey }
+}
+
+/**
  * ProjectRealtimeClient
  *
  * Manages real-time collaboration for a specific project.
@@ -32,14 +69,14 @@ export class ProjectRealtimeClient {
   /**
    * Create a new ProjectRealtimeClient
    * @param projectId - The project ID to subscribe to
+   * @throws Error if Supabase credentials are not configured
    */
   constructor(projectId: string) {
     this.projectId = projectId
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    const { url, anonKey } = getSupabaseCredentials()
 
-    this.supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    this.supabase = createClient(url, anonKey, {
       realtime: {
         params: {
           eventsPerSecond: 10,
@@ -226,7 +263,12 @@ export class ProjectRealtimeClient {
 
     Object.values(presenceState).forEach((presenceList) => {
       presenceList.forEach((presence) => {
-        presences.push(presence as unknown as PresenceState)
+        // Use type guard instead of unsafe type assertion
+        if (isPresenceState(presence)) {
+          presences.push(presence)
+        } else {
+          console.warn('[RealtimeClient] Invalid presence state:', presence)
+        }
       })
     })
 
@@ -272,6 +314,7 @@ export class ProjectRealtimeClient {
  * Create a new ProjectRealtimeClient instance
  *
  * Factory function for creating realtime clients.
+ * @throws Error if Supabase credentials are not configured
  */
 export function createProjectRealtimeClient(projectId: string): ProjectRealtimeClient {
   return new ProjectRealtimeClient(projectId)

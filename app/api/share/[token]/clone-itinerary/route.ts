@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { Prisma } from '@prisma/client'
 
 // POST /api/share/[token]/clone-itinerary - 일정 포함 전체 복제
 export async function POST(
@@ -49,22 +50,25 @@ export async function POST(
       )
     }
 
-    // 2. 새 프로젝트 생성
-    const newProject = await prisma.project.create({
-      data: {
-        userId: session.user.id,
-        name: `${sourceProject.name} (복제)`,
-        destination: sourceProject.destination,
-        country: sourceProject.country,
-      },
-    })
-
-    // 3. 장소 복제 (ID 매핑 유지)
-    const placeIdMap = new Map<string, string>()
-
-    for (const place of sourceProject.places) {
-      const newPlace = await prisma.place.create({
+    // 2. 트랜잭션으로 전체 복제 수행 (데이터 정합성 보장)
+    const result = await prisma.$transaction(async (tx) => {
+      // 2-1. 새 프로젝트 생성
+      const newProject = await tx.project.create({
         data: {
+          userId: session.user.id,
+          name: `${sourceProject.name} (복제)`,
+          destination: sourceProject.destination,
+          country: sourceProject.country,
+        },
+      })
+
+      // 2-2. 장소 배치 복제 (N+1 문제 해결)
+      const placeIdMap = new Map<string, string>()
+
+      if (sourceProject.places.length > 0) {
+        // 각 장소에 새 ID 생성 및 매핑
+        const placesData = sourceProject.places.map((place) => ({
+          id: crypto.randomUUID(),
           projectId: newProject.id,
           name: place.name,
           category: place.category,
@@ -77,32 +81,38 @@ export async function POST(
           rating: place.rating,
           userRatingsTotal: place.userRatingsTotal,
           priceLevel: place.priceLevel,
-          status: 'cloned',
-        },
-      })
-      placeIdMap.set(place.id, newPlace.id)
-    }
+          status: 'cloned' as const,
+        }))
 
-    // 4. 일정 복제 (있는 경우)
-    if (sourceProject.itinerary) {
-      const sourceItinerary = sourceProject.itinerary
+        // ID 매핑 저장
+        sourceProject.places.forEach((place, index) => {
+          placeIdMap.set(place.id, placesData[index].id)
+        })
 
-      // 숙소 ID 매핑
-      const accommodationIdMap = new Map<string, string>()
+        // 배치 생성
+        await tx.place.createMany({
+          data: placesData,
+        })
+      }
 
-      const newItinerary = await prisma.itinerary.create({
-        data: {
-          projectId: newProject.id,
-          title: sourceItinerary.title,
-          startDate: sourceItinerary.startDate,
-          endDate: sourceItinerary.endDate,
-        },
-      })
+      // 2-3. 일정 복제 (있는 경우)
+      if (sourceProject.itinerary) {
+        const sourceItinerary = sourceProject.itinerary
+        const accommodationIdMap = new Map<string, string>()
 
-      // Accommodations 먼저 복제 (items에서 참조하기 때문)
-      for (const accom of sourceItinerary.accommodations) {
-        const newAccom = await prisma.accommodation.create({
+        const newItinerary = await tx.itinerary.create({
           data: {
+            projectId: newProject.id,
+            title: sourceItinerary.title,
+            startDate: sourceItinerary.startDate,
+            endDate: sourceItinerary.endDate,
+          },
+        })
+
+        // 숙소 배치 복제
+        if (sourceItinerary.accommodations.length > 0) {
+          const accommodationsData = sourceItinerary.accommodations.map((accom) => ({
+            id: crypto.randomUUID(),
             itineraryId: newItinerary.id,
             name: accom.name,
             address: accom.address,
@@ -111,62 +121,94 @@ export async function POST(
             checkIn: accom.checkIn,
             checkOut: accom.checkOut,
             note: accom.note,
-          },
-        })
-        accommodationIdMap.set(accom.id, newAccom.id)
-      }
+          }))
 
-      // Days 복제
-      for (const day of sourceItinerary.days) {
-        const newDay = await prisma.itineraryDay.create({
-          data: {
-            itineraryId: newItinerary.id,
-            dayNumber: day.dayNumber,
-            date: day.date,
-          },
-        })
+          // ID 매핑 저장
+          sourceItinerary.accommodations.forEach((accom, index) => {
+            accommodationIdMap.set(accom.id, accommodationsData[index].id)
+          })
 
-        // Items 복제 (새 placeId, accommodationId 사용)
-        for (const item of day.items) {
-          await prisma.itineraryItem.create({
+          await tx.accommodation.createMany({
+            data: accommodationsData,
+          })
+        }
+
+        // Days와 Items 복제
+        for (const day of sourceItinerary.days) {
+          const newDay = await tx.itineraryDay.create({
             data: {
+              itineraryId: newItinerary.id,
+              dayNumber: day.dayNumber,
+              date: day.date,
+            },
+          })
+
+          // Items 배치 복제
+          if (day.items.length > 0) {
+            const itemsData = day.items.map((item) => ({
               dayId: newDay.id,
-              placeId: item.placeId ? placeIdMap.get(item.placeId) : null,
+              placeId: item.placeId ? placeIdMap.get(item.placeId) || null : null,
               accommodationId: item.accommodationId
-                ? accommodationIdMap.get(item.accommodationId)
+                ? accommodationIdMap.get(item.accommodationId) || null
                 : null,
               itemType: item.itemType,
               order: item.order,
               startTime: item.startTime,
               note: item.note,
-            },
+            }))
+
+            await tx.itineraryItem.createMany({
+              data: itemsData,
+            })
+          }
+        }
+
+        // Flights 배치 복제
+        if (sourceItinerary.flights.length > 0) {
+          await tx.flight.createMany({
+            data: sourceItinerary.flights.map((flight) => ({
+              itineraryId: newItinerary.id,
+              departureCity: flight.departureCity,
+              arrivalCity: flight.arrivalCity,
+              airline: flight.airline,
+              flightNumber: flight.flightNumber,
+              departureDate: flight.departureDate,
+              arrivalDate: flight.arrivalDate,
+              note: flight.note,
+            })),
           })
         }
       }
 
-      // Flights 복제
-      for (const flight of sourceItinerary.flights) {
-        await prisma.flight.create({
-          data: {
-            itineraryId: newItinerary.id,
-            departureCity: flight.departureCity,
-            arrivalCity: flight.arrivalCity,
-            airline: flight.airline,
-            flightNumber: flight.flightNumber,
-            departureDate: flight.departureDate,
-            arrivalDate: flight.arrivalDate,
-            note: flight.note,
-          },
-        })
-      }
-    }
+      return newProject
+    })
 
     return NextResponse.json({
-      projectId: newProject.id,
+      projectId: result.id,
       message: 'Itinerary cloned successfully',
     })
   } catch (error) {
-    console.error('[Clone Itinerary Error]', error)
+    // 에러 타입별 구분 처리
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      console.error('[Clone Error - DB]', error.code, error.message)
+      return NextResponse.json(
+        { error: '데이터베이스 오류가 발생했습니다.' },
+        { status: 500 }
+      )
+    }
+
+    if (error instanceof Prisma.PrismaClientValidationError) {
+      console.error('[Clone Error - Validation]', error.message)
+      return NextResponse.json(
+        { error: '데이터 검증 오류가 발생했습니다.' },
+        { status: 400 }
+      )
+    }
+
+    console.error(
+      '[Clone Itinerary Error]',
+      error instanceof Error ? error.message : 'Unknown error'
+    )
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

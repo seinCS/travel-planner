@@ -137,7 +137,12 @@ test.describe('P0: AI 분석 실행 플로우', () => {
     }
 
     // AI 분석 UI가 어떤 형태로든 존재해야 함
-    expect(hasAnalyzeButton || hasAlternative).toBe(true)
+    // 명확한 조건 검증: 분석 버튼 또는 대체 버튼 중 하나는 반드시 존재해야 함
+    if (hasAnalyzeButton) {
+      expect(hasAnalyzeButton).toBe(true)
+    } else {
+      expect(hasAlternative).toBe(true)
+    }
   })
 
   test('이미지가 있을 때 분석 버튼이 활성화된다', async ({ projectDetailPage }) => {
