@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, memo } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Button } from '@/components/ui/button'
@@ -38,7 +38,8 @@ interface SortableTimelineItemProps {
   isLoading?: boolean
 }
 
-export function SortableTimelineItem({
+// rerender-memo 패턴: 드래그 리스트 아이템 최적화
+export const SortableTimelineItem = memo(function SortableTimelineItem({
   item,
   index,
   currentDayId,
@@ -241,4 +242,4 @@ export function SortableTimelineItem({
       </div>
     </div>
   )
-}
+})

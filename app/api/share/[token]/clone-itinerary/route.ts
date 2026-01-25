@@ -133,20 +133,30 @@ export async function POST(
           })
         }
 
-        // Days와 Items 복제
-        for (const day of sourceItinerary.days) {
-          const newDay = await tx.itineraryDay.create({
-            data: {
-              itineraryId: newItinerary.id,
-              dayNumber: day.dayNumber,
-              date: day.date,
-            },
+        // Days 배치 복제 (N+1 문제 해결)
+        const dayIdMap = new Map<string, string>()
+
+        if (sourceItinerary.days.length > 0) {
+          const daysData = sourceItinerary.days.map((day) => ({
+            id: crypto.randomUUID(),
+            itineraryId: newItinerary.id,
+            dayNumber: day.dayNumber,
+            date: day.date,
+          }))
+
+          // ID 매핑 저장
+          sourceItinerary.days.forEach((day, index) => {
+            dayIdMap.set(day.id, daysData[index].id)
           })
 
-          // Items 배치 복제
-          if (day.items.length > 0) {
-            const itemsData = day.items.map((item) => ({
-              dayId: newDay.id,
+          await tx.itineraryDay.createMany({
+            data: daysData,
+          })
+
+          // Items 배치 복제 (모든 days의 items를 한 번에 처리)
+          const allItemsData = sourceItinerary.days.flatMap((day) =>
+            day.items.map((item) => ({
+              dayId: dayIdMap.get(day.id)!,
               placeId: item.placeId ? placeIdMap.get(item.placeId) || null : null,
               accommodationId: item.accommodationId
                 ? accommodationIdMap.get(item.accommodationId) || null
@@ -156,9 +166,11 @@ export async function POST(
               startTime: item.startTime,
               note: item.note,
             }))
+          )
 
+          if (allItemsData.length > 0) {
             await tx.itineraryItem.createMany({
-              data: itemsData,
+              data: allItemsData,
             })
           }
         }

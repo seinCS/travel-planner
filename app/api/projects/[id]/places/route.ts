@@ -44,22 +44,23 @@ export async function GET(
       return NextResponse.json({ error: API_ERRORS.PROJECT_ACCESS_DENIED }, { status: 404 })
     }
 
-    const places = await prisma.place.findMany({
-      where: { projectId: id },
-      include: {
-        placeImages: {
-          include: {
-            image: true,
+    // 병렬 쿼리로 places와 failedImages 동시 조회 (async-parallel 패턴)
+    const [places, failedImages] = await Promise.all([
+      prisma.place.findMany({
+        where: { projectId: id },
+        include: {
+          placeImages: {
+            include: {
+              image: true,
+            },
           },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
-
-    // 실패한 이미지 목록
-    const failedImages = await prisma.image.findMany({
-      where: { projectId: id, status: 'failed' },
-    })
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.image.findMany({
+        where: { projectId: id, status: 'failed' },
+      }),
+    ])
 
     return NextResponse.json({ places, failedImages })
   } catch (error) {
@@ -134,20 +135,21 @@ export async function POST(
       },
     })
 
-    // 이미지 연결
+    // 이미지 연결 (병렬 처리로 최적화)
     if (validated.imageIds?.length) {
-      await prisma.placeImage.createMany({
-        data: validated.imageIds.map((imageId) => ({
-          placeId: place.id,
-          imageId,
-        })),
-      })
-
-      // 연결된 이미지 상태 업데이트
-      await prisma.image.updateMany({
-        where: { id: { in: validated.imageIds } },
-        data: { status: 'processed' },
-      })
+      await Promise.all([
+        prisma.placeImage.createMany({
+          data: validated.imageIds.map((imageId) => ({
+            placeId: place.id,
+            imageId,
+          })),
+        }),
+        // 연결된 이미지 상태 업데이트 (병렬 실행)
+        prisma.image.updateMany({
+          where: { id: { in: validated.imageIds } },
+          data: { status: 'processed' },
+        }),
+      ])
     }
 
     return NextResponse.json(place, { status: 201 })

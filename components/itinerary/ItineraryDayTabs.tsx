@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, memo } from 'react'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
@@ -12,7 +12,8 @@ interface ItineraryDayTabsProps {
   onDaySelect: (dayNumber: number | null) => void
 }
 
-export function ItineraryDayTabs({
+// rerender-memo 패턴: 탭 버튼 리렌더링 최적화
+export const ItineraryDayTabs = memo(function ItineraryDayTabs({
   days,
   selectedDayNumber,
   onDaySelect,
@@ -58,4 +59,4 @@ export function ItineraryDayTabs({
       {dayButtons}
     </div>
   )
-}
+})
