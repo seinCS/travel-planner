@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { checkProjectAccess } from '@/lib/project-auth'
 import {
   createProcessTextInputsUseCase,
   createProcessingContext,
@@ -39,9 +40,16 @@ export async function POST(
       // body is optional
     }
 
-    // Get project
-    const project = await prisma.project.findFirst({
-      where: { id, userId: session.user.id },
+    // Owner 또는 Member 권한 확인
+    const { hasAccess } = await checkProjectAccess(id, session.user.id)
+
+    if (!hasAccess) {
+      return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 })
+    }
+
+    // Get project for processing context
+    const project = await prisma.project.findUnique({
+      where: { id },
     })
 
     if (!project) {

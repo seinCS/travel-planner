@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { checkProjectAccess } from '@/lib/project-auth'
 import { z } from 'zod'
 import {
   parseGoogleMapsUrlFull,
@@ -9,7 +10,11 @@ import {
   type ParsedGoogleMapsUrl,
 } from '@/lib/google-maps-parser'
 import { getPlaceDetails } from '@/lib/google-maps'
-import type { PlaceCategory } from '@/lib/constants'
+import { API_ERRORS, type PlaceCategory } from '@/lib/constants'
+
+// 서버 전용 API 키 (없으면 public 키 fallback)
+const getGoogleApiKey = () =>
+  process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
 const fromUrlSchema = z.object({
   url: z.string().url(),
@@ -42,7 +47,7 @@ async function getPlaceFromPlaceId(placeId: string): Promise<PlacePreviewData | 
 
   // Extract coordinates from the Google Maps URL or fetch via geocoding
   // For now, we'll use the Places API to get full details
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+  const apiKey = getGoogleApiKey()
   if (!apiKey) return null
 
   // Get place geometry using Place Details API
@@ -82,7 +87,7 @@ async function searchPlaceByNameAndCoords(
   lat: number,
   lng: number
 ): Promise<PlacePreviewData | null> {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+  const apiKey = getGoogleApiKey()
   if (!apiKey) return null
 
   // Use nearby search with the name as keyword
@@ -136,7 +141,7 @@ async function reverseGeocodeCoords(
   lat: number,
   lng: number
 ): Promise<PlacePreviewData | null> {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+  const apiKey = getGoogleApiKey()
   if (!apiKey) return null
 
   const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${apiKey}`
@@ -214,28 +219,27 @@ export async function GET(
     const session = await getServerSession(authOptions)
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: API_ERRORS.UNAUTHORIZED }, { status: 401 })
     }
 
     const { id } = await params
 
-    const project = await prisma.project.findFirst({
-      where: { id, userId: session.user.id },
-    })
+    // Owner 또는 Member 권한 확인
+    const { hasAccess } = await checkProjectAccess(id, session.user.id)
 
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+    if (!hasAccess) {
+      return NextResponse.json({ error: API_ERRORS.PROJECT_ACCESS_DENIED }, { status: 404 })
     }
 
     const { searchParams } = new URL(request.url)
     const url = searchParams.get('url')
 
     if (!url) {
-      return NextResponse.json({ error: 'URL is required' }, { status: 400 })
+      return NextResponse.json({ error: API_ERRORS.URL_REQUIRED }, { status: 400 })
     }
 
     if (!isGoogleMapsUrl(url)) {
-      return NextResponse.json({ error: 'Not a valid Google Maps URL' }, { status: 400 })
+      return NextResponse.json({ error: API_ERRORS.INVALID_GOOGLE_MAPS_URL }, { status: 400 })
     }
 
     // Parse the URL (this resolves short URLs too)
@@ -243,7 +247,7 @@ export async function GET(
 
     if (parsed.type === 'unknown') {
       return NextResponse.json(
-        { error: 'Could not parse Google Maps URL' },
+        { error: API_ERRORS.CANNOT_PARSE_URL },
         { status: 400 }
       )
     }
@@ -253,7 +257,7 @@ export async function GET(
 
     if (!placeData) {
       return NextResponse.json(
-        { error: 'Could not extract place information from URL' },
+        { error: API_ERRORS.CANNOT_EXTRACT_PLACE },
         { status: 400 }
       )
     }
@@ -270,7 +274,7 @@ export async function GET(
     })
   } catch (error) {
     console.error('Error previewing place from URL:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: API_ERRORS.INTERNAL_ERROR }, { status: 500 })
   }
 }
 
@@ -283,24 +287,23 @@ export async function POST(
     const session = await getServerSession(authOptions)
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: API_ERRORS.UNAUTHORIZED }, { status: 401 })
     }
 
     const { id } = await params
 
-    const project = await prisma.project.findFirst({
-      where: { id, userId: session.user.id },
-    })
+    // Owner 또는 Member 권한 확인
+    const { hasAccess } = await checkProjectAccess(id, session.user.id)
 
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+    if (!hasAccess) {
+      return NextResponse.json({ error: API_ERRORS.PROJECT_ACCESS_DENIED }, { status: 404 })
     }
 
     const body = await request.json()
     const validated = fromUrlSchema.parse(body)
 
     if (!isGoogleMapsUrl(validated.url)) {
-      return NextResponse.json({ error: 'Not a valid Google Maps URL' }, { status: 400 })
+      return NextResponse.json({ error: API_ERRORS.INVALID_GOOGLE_MAPS_URL }, { status: 400 })
     }
 
     // Parse the URL
@@ -308,7 +311,7 @@ export async function POST(
 
     if (parsed.type === 'unknown') {
       return NextResponse.json(
-        { error: 'Could not parse Google Maps URL' },
+        { error: API_ERRORS.CANNOT_PARSE_URL },
         { status: 400 }
       )
     }
@@ -318,7 +321,7 @@ export async function POST(
 
     if (!placeData) {
       return NextResponse.json(
-        { error: 'Could not extract place information from URL' },
+        { error: API_ERRORS.CANNOT_EXTRACT_PLACE },
         { status: 400 }
       )
     }
@@ -334,7 +337,7 @@ export async function POST(
 
       if (existingPlace) {
         return NextResponse.json(
-          { error: '이미 추가된 장소입니다.', existingPlace },
+          { error: API_ERRORS.PLACE_DUPLICATE, existingPlace },
           { status: 409 }
         )
       }
@@ -365,6 +368,6 @@ export async function POST(
       return NextResponse.json({ error: error.issues }, { status: 400 })
     }
     console.error('Error creating place from URL:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: API_ERRORS.INTERNAL_ERROR }, { status: 500 })
   }
 }

@@ -3,6 +3,12 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { supabaseAdmin } from '@/lib/supabase'
+import { checkProjectAccess } from '@/lib/project-auth'
+import {
+  API_ERRORS,
+  MAX_IMAGE_SIZE,
+  SUPPORTED_IMAGE_EXTENSIONS,
+} from '@/lib/constants'
 
 // GET /api/projects/[id]/images - 이미지 목록 조회
 export async function GET(
@@ -13,18 +19,16 @@ export async function GET(
     const session = await getServerSession(authOptions)
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: API_ERRORS.UNAUTHORIZED }, { status: 401 })
     }
 
     const { id } = await params
 
-    // 프로젝트 소유권 확인
-    const project = await prisma.project.findFirst({
-      where: { id, userId: session.user.id },
-    })
+    // Owner 또는 Member 권한 확인
+    const { hasAccess } = await checkProjectAccess(id, session.user.id)
 
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+    if (!hasAccess) {
+      return NextResponse.json({ error: API_ERRORS.PROJECT_ACCESS_DENIED }, { status: 404 })
     }
 
     const images = await prisma.image.findMany({
@@ -35,7 +39,7 @@ export async function GET(
     return NextResponse.json(images)
   } catch (error) {
     console.error('Error fetching images:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: API_ERRORS.INTERNAL_ERROR }, { status: 500 })
   }
 }
 
@@ -48,25 +52,23 @@ export async function POST(
     const session = await getServerSession(authOptions)
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: API_ERRORS.UNAUTHORIZED }, { status: 401 })
     }
 
     const { id } = await params
 
-    // 프로젝트 소유권 확인
-    const project = await prisma.project.findFirst({
-      where: { id, userId: session.user.id },
-    })
+    // Owner 또는 Member 권한 확인
+    const { hasAccess } = await checkProjectAccess(id, session.user.id)
 
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+    if (!hasAccess) {
+      return NextResponse.json({ error: API_ERRORS.PROJECT_ACCESS_DENIED }, { status: 404 })
     }
 
     const formData = await request.formData()
     const files = formData.getAll('files') as File[]
 
     if (!files.length) {
-      return NextResponse.json({ error: 'No files provided' }, { status: 400 })
+      return NextResponse.json({ error: API_ERRORS.NO_FILES }, { status: 400 })
     }
 
     const uploaded: { id: string; url: string; status: string }[] = []
@@ -80,18 +82,17 @@ export async function POST(
 
         // 파일 검증 - type 또는 확장자로 이미지 확인
         const ext = file.name.split('.').pop()?.toLowerCase() || ''
-        const validExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif']
-        const isValidType = file.type.startsWith('image/') || validExtensions.includes(ext)
+        const isValidType = file.type.startsWith('image/') || SUPPORTED_IMAGE_EXTENSIONS.includes(ext)
 
         if (!isValidType) {
           console.warn(`[Upload API] Invalid file type: "${file.type}", ext: "${ext}"`)
-          failed.push({ name: file.name, error: 'Invalid file type' })
+          failed.push({ name: file.name, error: API_ERRORS.INVALID_FILE_TYPE })
           continue
         }
 
-        if (file.size > 10 * 1024 * 1024) {
+        if (file.size > MAX_IMAGE_SIZE) {
           console.warn(`[Upload API] File too large: ${file.size}`)
-          failed.push({ name: file.name, error: 'File too large (max 10MB)' })
+          failed.push({ name: file.name, error: API_ERRORS.FILE_TOO_LARGE })
           continue
         }
 
@@ -153,6 +154,6 @@ export async function POST(
     return NextResponse.json({ uploaded, failed })
   } catch (error) {
     console.error('Error uploading images:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: API_ERRORS.INTERNAL_ERROR }, { status: 500 })
   }
 }

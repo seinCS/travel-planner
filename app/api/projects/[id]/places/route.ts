@@ -3,7 +3,9 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { geocodePlace } from '@/lib/google-maps'
+import { checkProjectAccess } from '@/lib/project-auth'
 import { z } from 'zod'
+import { API_ERRORS } from '@/lib/constants'
 
 const createPlaceSchema = z.object({
   name: z.string().min(1).max(255),
@@ -30,17 +32,16 @@ export async function GET(
     const session = await getServerSession(authOptions)
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: API_ERRORS.UNAUTHORIZED }, { status: 401 })
     }
 
     const { id } = await params
 
-    const project = await prisma.project.findFirst({
-      where: { id, userId: session.user.id },
-    })
+    // Owner 또는 Member 권한 확인
+    const { hasAccess } = await checkProjectAccess(id, session.user.id)
 
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+    if (!hasAccess) {
+      return NextResponse.json({ error: API_ERRORS.PROJECT_ACCESS_DENIED }, { status: 404 })
     }
 
     const places = await prisma.place.findMany({
@@ -63,7 +64,7 @@ export async function GET(
     return NextResponse.json({ places, failedImages })
   } catch (error) {
     console.error('Error fetching places:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: API_ERRORS.INTERNAL_ERROR }, { status: 500 })
   }
 }
 
@@ -76,18 +77,21 @@ export async function POST(
     const session = await getServerSession(authOptions)
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: API_ERRORS.UNAUTHORIZED }, { status: 401 })
     }
 
     const { id } = await params
 
-    const project = await prisma.project.findFirst({
-      where: { id, userId: session.user.id },
+    // Owner 또는 Member 권한 확인 + Geocoding에 필요한 정보 함께 조회 (중복 쿼리 방지)
+    const { hasAccess, project } = await checkProjectAccess(id, session.user.id, {
+      include: { destination: true, country: true },
     })
 
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+    if (!hasAccess || !project) {
+      return NextResponse.json({ error: API_ERRORS.PROJECT_ACCESS_DENIED }, { status: 404 })
     }
+
+    const projectWithGeo = project as { destination?: string; country?: string | null }
 
     const body = await request.json()
     const validated = createPlaceSchema.parse(body)
@@ -99,12 +103,12 @@ export async function POST(
     if (!latitude || !longitude) {
       const geoResult = await geocodePlace(
         validated.name,
-        project.destination,
-        project.country || undefined
+        projectWithGeo.destination ?? '',
+        projectWithGeo.country || undefined
       )
 
       if (!geoResult) {
-        return NextResponse.json({ error: 'Could not find location' }, { status: 400 })
+        return NextResponse.json({ error: API_ERRORS.LOCATION_NOT_FOUND }, { status: 400 })
       }
 
       latitude = geoResult.latitude
@@ -152,6 +156,6 @@ export async function POST(
       return NextResponse.json({ error: error.issues }, { status: 400 })
     }
     console.error('Error creating place:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: API_ERRORS.INTERNAL_ERROR }, { status: 500 })
   }
 }
