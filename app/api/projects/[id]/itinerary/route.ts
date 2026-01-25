@@ -11,6 +11,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { checkProjectAccess, checkOwnerAccess } from '@/lib/project-auth'
 import { z } from 'zod'
 
 // Validation schemas
@@ -41,27 +42,18 @@ export async function GET(
     const { id } = await params
     console.log('[Itinerary GET] projectId:', id, 'userId:', session.user.id)
 
-    // Verify project ownership
-    console.log('[Itinerary GET] Starting project query...')
+    // Owner 또는 Member 권한 확인
+    console.log('[Itinerary GET] Starting access check...')
     const startTime = Date.now()
-    let project
-    try {
-      project = await prisma.project.findFirst({
-        where: { id, userId: session.user.id },
-      })
-      console.log('[Itinerary GET] Project query completed in', Date.now() - startTime, 'ms')
-    } catch (dbError) {
-      console.error('[Itinerary GET] Project query failed after', Date.now() - startTime, 'ms')
-      console.error('[Itinerary GET] DB Error:', dbError instanceof Error ? dbError.message : String(dbError))
-      throw dbError
+    const { hasAccess, role } = await checkProjectAccess(id, session.user.id)
+    console.log('[Itinerary GET] Access check completed in', Date.now() - startTime, 'ms')
+
+    if (!hasAccess) {
+      console.log('[Itinerary GET] Access denied for project:', id)
+      return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 })
     }
 
-    if (!project) {
-      console.log('[Itinerary GET] Project not found for id:', id)
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
-    }
-
-    console.log('[Itinerary GET] Project found:', project.id, project.name)
+    console.log('[Itinerary GET] Access granted with role:', role)
 
     // First, check if itinerary exists (simple query)
     const itineraryExists = await prisma.itinerary.findUnique({
@@ -179,13 +171,11 @@ export async function POST(
 
     const { id } = await params
 
-    // Verify project ownership
-    const project = await prisma.project.findFirst({
-      where: { id, userId: session.user.id },
-    })
+    // Owner 또는 Member 권한 확인
+    const { hasAccess } = await checkProjectAccess(id, session.user.id)
 
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+    if (!hasAccess) {
+      return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 })
     }
 
     // Check if itinerary already exists
@@ -272,13 +262,11 @@ export async function PUT(
 
     const { id } = await params
 
-    // Verify project ownership
-    const project = await prisma.project.findFirst({
-      where: { id, userId: session.user.id },
-    })
+    // Owner 또는 Member 권한 확인
+    const { hasAccess } = await checkProjectAccess(id, session.user.id)
 
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+    if (!hasAccess) {
+      return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 })
     }
 
     const existingItinerary = await prisma.itinerary.findUnique({
@@ -337,7 +325,7 @@ export async function PUT(
   }
 }
 
-// DELETE /api/projects/[id]/itinerary
+// DELETE /api/projects/[id]/itinerary (Owner 전용)
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -351,13 +339,18 @@ export async function DELETE(
 
     const { id } = await params
 
-    // Verify project ownership
-    const project = await prisma.project.findFirst({
-      where: { id, userId: session.user.id },
-    })
+    // Owner 전용 권한 확인
+    const { isOwner, project } = await checkOwnerAccess(id, session.user.id)
 
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+    }
+
+    if (!isOwner) {
+      return NextResponse.json(
+        { error: 'Only project owner can delete the itinerary' },
+        { status: 403 }
+      )
     }
 
     const existingItinerary = await prisma.itinerary.findUnique({

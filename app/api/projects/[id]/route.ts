@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { checkProjectAccess, checkOwnerAccess } from '@/lib/project-auth'
 
 // GET /api/projects/[id] - 프로젝트 상세 조회
 export async function GET(
@@ -17,11 +18,18 @@ export async function GET(
 
     const { id } = await params
 
-    const project = await prisma.project.findFirst({
-      where: {
-        id,
-        userId: session.user.id,
-      },
+    // Owner 또는 Member 권한 확인
+    const { hasAccess, role } = await checkProjectAccess(id, session.user.id)
+
+    if (!hasAccess) {
+      return NextResponse.json(
+        { error: 'Project not found or access denied' },
+        { status: 404 }
+      )
+    }
+
+    const project = await prisma.project.findUnique({
+      where: { id },
       include: {
         places: {
           include: {
@@ -36,18 +44,15 @@ export async function GET(
       },
     })
 
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
-    }
-
-    return NextResponse.json(project)
+    // role 정보를 응답에 포함
+    return NextResponse.json({ ...project, userRole: role })
   } catch (error) {
     console.error('Error fetching project:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
-// DELETE /api/projects/[id] - 프로젝트 삭제
+// DELETE /api/projects/[id] - 프로젝트 삭제 (Owner 전용)
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -61,16 +66,18 @@ export async function DELETE(
 
     const { id } = await params
 
-    // 본인 프로젝트인지 확인
-    const project = await prisma.project.findFirst({
-      where: {
-        id,
-        userId: session.user.id,
-      },
-    })
+    // Owner 전용 권한 확인
+    const { isOwner, project } = await checkOwnerAccess(id, session.user.id)
 
     if (!project) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+    }
+
+    if (!isOwner) {
+      return NextResponse.json(
+        { error: 'Only project owner can delete the project' },
+        { status: 403 }
+      )
     }
 
     // 삭제 (cascade로 관련 데이터 함께 삭제)

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { checkProjectAccess } from '@/lib/project-auth'
 import { z } from 'zod'
 import {
   parseGoogleMapsUrlFull,
@@ -219,12 +220,11 @@ export async function GET(
 
     const { id } = await params
 
-    const project = await prisma.project.findFirst({
-      where: { id, userId: session.user.id },
-    })
+    // Owner 또는 Member 권한 확인
+    const { hasAccess } = await checkProjectAccess(id, session.user.id)
 
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+    if (!hasAccess) {
+      return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 })
     }
 
     const { searchParams } = new URL(request.url)
@@ -288,12 +288,11 @@ export async function POST(
 
     const { id } = await params
 
-    const project = await prisma.project.findFirst({
-      where: { id, userId: session.user.id },
-    })
+    // Owner 또는 Member 권한 확인
+    const { hasAccess } = await checkProjectAccess(id, session.user.id)
 
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+    if (!hasAccess) {
+      return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 })
     }
 
     const body = await request.json()

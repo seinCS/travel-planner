@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { supabaseAdmin } from '@/lib/supabase'
+import { checkProjectAccess } from '@/lib/project-auth'
 
 // GET /api/projects/[id]/images - 이미지 목록 조회
 export async function GET(
@@ -18,13 +19,11 @@ export async function GET(
 
     const { id } = await params
 
-    // 프로젝트 소유권 확인
-    const project = await prisma.project.findFirst({
-      where: { id, userId: session.user.id },
-    })
+    // Owner 또는 Member 권한 확인
+    const { hasAccess } = await checkProjectAccess(id, session.user.id)
 
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+    if (!hasAccess) {
+      return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 })
     }
 
     const images = await prisma.image.findMany({
@@ -53,13 +52,11 @@ export async function POST(
 
     const { id } = await params
 
-    // 프로젝트 소유권 확인
-    const project = await prisma.project.findFirst({
-      where: { id, userId: session.user.id },
-    })
+    // Owner 또는 Member 권한 확인
+    const { hasAccess } = await checkProjectAccess(id, session.user.id)
 
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+    if (!hasAccess) {
+      return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 })
     }
 
     const formData = await request.formData()

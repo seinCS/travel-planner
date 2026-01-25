@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { geocodePlace } from '@/lib/google-maps'
+import { checkProjectAccess } from '@/lib/project-auth'
 import { z } from 'zod'
 
 const createPlaceSchema = z.object({
@@ -35,12 +36,11 @@ export async function GET(
 
     const { id } = await params
 
-    const project = await prisma.project.findFirst({
-      where: { id, userId: session.user.id },
-    })
+    // Owner 또는 Member 권한 확인
+    const { hasAccess } = await checkProjectAccess(id, session.user.id)
 
-    if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+    if (!hasAccess) {
+      return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 })
     }
 
     const places = await prisma.place.findMany({
@@ -81,8 +81,17 @@ export async function POST(
 
     const { id } = await params
 
-    const project = await prisma.project.findFirst({
-      where: { id, userId: session.user.id },
+    // Owner 또는 Member 권한 확인
+    const { hasAccess } = await checkProjectAccess(id, session.user.id)
+
+    if (!hasAccess) {
+      return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 })
+    }
+
+    // 프로젝트 정보 조회 (Geocoding에 필요한 destination, country)
+    const project = await prisma.project.findUnique({
+      where: { id },
+      select: { destination: true, country: true },
     })
 
     if (!project) {
