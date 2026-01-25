@@ -13,6 +13,11 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
 import { checkProjectAccess, checkOwnerAccess } from '@/lib/project-auth'
 import { z } from 'zod'
+import { API_ERRORS } from '@/lib/constants'
+
+// 개발 환경에서만 로그 출력
+const isDev = process.env.NODE_ENV === 'development'
+const debugLog = (...args: unknown[]) => isDev && console.log(...args)
 
 // Validation schemas
 const createItinerarySchema = z.object({
@@ -36,24 +41,23 @@ export async function GET(
     const session = await getServerSession(authOptions)
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: API_ERRORS.UNAUTHORIZED }, { status: 401 })
     }
 
     const { id } = await params
-    console.log('[Itinerary GET] projectId:', id, 'userId:', session.user.id)
+    debugLog('[Itinerary GET] projectId:', id, 'userId:', session.user.id)
 
     // Owner 또는 Member 권한 확인
-    console.log('[Itinerary GET] Starting access check...')
     const startTime = Date.now()
     const { hasAccess, role } = await checkProjectAccess(id, session.user.id)
-    console.log('[Itinerary GET] Access check completed in', Date.now() - startTime, 'ms')
+    debugLog('[Itinerary GET] Access check completed in', Date.now() - startTime, 'ms')
 
     if (!hasAccess) {
-      console.log('[Itinerary GET] Access denied for project:', id)
-      return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 })
+      debugLog('[Itinerary GET] Access denied for project:', id)
+      return NextResponse.json({ error: API_ERRORS.PROJECT_ACCESS_DENIED }, { status: 404 })
     }
 
-    console.log('[Itinerary GET] Access granted with role:', role)
+    debugLog('[Itinerary GET] Access granted with role:', role)
 
     // First, check if itinerary exists (simple query)
     const itineraryExists = await prisma.itinerary.findUnique({
@@ -62,11 +66,11 @@ export async function GET(
     })
 
     if (!itineraryExists) {
-      console.log('[Itinerary GET] No itinerary exists for project:', id)
+      debugLog('[Itinerary GET] No itinerary exists for project:', id)
       return NextResponse.json({ itinerary: null })
     }
 
-    console.log('[Itinerary GET] Itinerary exists:', itineraryExists.id)
+    debugLog('[Itinerary GET] Itinerary exists:', itineraryExists.id)
 
     // Get full itinerary with relations - use more defensive query
     try {
@@ -95,12 +99,12 @@ export async function GET(
       })
 
       if (!itinerary) {
-        console.log('[Itinerary GET] Itinerary disappeared during query - race condition?')
+        debugLog('[Itinerary GET] Itinerary disappeared during query - race condition?')
         return NextResponse.json({ itinerary: null })
       }
 
       const itemCount = itinerary.days.reduce((acc, d) => acc + d.items.length, 0)
-      console.log('[Itinerary GET] Itinerary loaded successfully:', {
+      debugLog('[Itinerary GET] Itinerary loaded successfully:', {
         id: itinerary.id,
         days: itinerary.days.length,
         items: itemCount,
@@ -129,31 +133,17 @@ export async function GET(
     } catch (queryError) {
       // 일정은 존재하지만 관계 데이터 로드에 실패한 경우
       const errorMessage = queryError instanceof Error ? queryError.message : String(queryError)
-      const errorStack = queryError instanceof Error ? queryError.stack : undefined
-      console.error('[Itinerary GET] Failed to load itinerary relations:', {
-        error: errorMessage,
-        stack: errorStack,
-        itineraryId: itineraryExists.id,
-        projectId: id,
-      })
+      console.error('[Itinerary GET] Failed to load itinerary relations:', errorMessage)
       return NextResponse.json({
         error: 'Failed to load itinerary data',
         code: 'ITINERARY_LOAD_ERROR',
         itineraryId: itineraryExists.id,
-        message: '일정 데이터를 불러오는데 실패했습니다. 페이지를 새로고침 해주세요.',
+        message: API_ERRORS.ITINERARY_LOAD_ERROR,
       }, { status: 500 })
     }
   } catch (error) {
-    console.error('[Itinerary GET] Unexpected error caught!')
-    console.error('[Itinerary GET] Error type:', typeof error)
-    console.error('[Itinerary GET] Error constructor:', error?.constructor?.name)
-    if (error instanceof Error) {
-      console.error('[Itinerary GET] Error message:', error.message)
-      console.error('[Itinerary GET] Error stack:', error.stack)
-    } else {
-      console.error('[Itinerary GET] Error value:', JSON.stringify(error))
-    }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('[Itinerary GET] Error:', error instanceof Error ? error.message : error)
+    return NextResponse.json({ error: API_ERRORS.INTERNAL_ERROR }, { status: 500 })
   }
 }
 
@@ -166,7 +156,7 @@ export async function POST(
     const session = await getServerSession(authOptions)
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: API_ERRORS.UNAUTHORIZED }, { status: 401 })
     }
 
     const { id } = await params
@@ -175,7 +165,7 @@ export async function POST(
     const { hasAccess } = await checkProjectAccess(id, session.user.id)
 
     if (!hasAccess) {
-      return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 })
+      return NextResponse.json({ error: API_ERRORS.PROJECT_ACCESS_DENIED }, { status: 404 })
     }
 
     // Check if itinerary already exists
@@ -184,9 +174,9 @@ export async function POST(
     })
 
     if (existingItinerary) {
-      console.log('[Itinerary POST] Itinerary already exists:', existingItinerary.id)
+      debugLog('[Itinerary POST] Itinerary already exists:', existingItinerary.id)
       return NextResponse.json({
-        error: 'Itinerary already exists for this project',
+        error: API_ERRORS.ITINERARY_EXISTS,
         code: 'ITINERARY_EXISTS',
         itineraryId: existingItinerary.id,
         message: '이미 일정이 존재합니다. 페이지를 새로고침 해주세요.',
@@ -200,7 +190,7 @@ export async function POST(
     const endDate = new Date(validated.endDate)
 
     if (endDate < startDate) {
-      return NextResponse.json({ error: 'End date must be after start date' }, { status: 400 })
+      return NextResponse.json({ error: API_ERRORS.INVALID_DATE_RANGE }, { status: 400 })
     }
 
     // Calculate number of days
@@ -244,7 +234,7 @@ export async function POST(
       return NextResponse.json({ error: error.issues }, { status: 400 })
     }
     console.error('Error creating itinerary:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: API_ERRORS.INTERNAL_ERROR }, { status: 500 })
   }
 }
 
@@ -257,7 +247,7 @@ export async function PUT(
     const session = await getServerSession(authOptions)
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: API_ERRORS.UNAUTHORIZED }, { status: 401 })
     }
 
     const { id } = await params
@@ -266,7 +256,7 @@ export async function PUT(
     const { hasAccess } = await checkProjectAccess(id, session.user.id)
 
     if (!hasAccess) {
-      return NextResponse.json({ error: 'Project not found or access denied' }, { status: 404 })
+      return NextResponse.json({ error: API_ERRORS.PROJECT_ACCESS_DENIED }, { status: 404 })
     }
 
     const existingItinerary = await prisma.itinerary.findUnique({
@@ -274,7 +264,7 @@ export async function PUT(
     })
 
     if (!existingItinerary) {
-      return NextResponse.json({ error: 'Itinerary not found' }, { status: 404 })
+      return NextResponse.json({ error: API_ERRORS.ITINERARY_NOT_FOUND }, { status: 404 })
     }
 
     const body = await request.json()
@@ -321,7 +311,7 @@ export async function PUT(
       return NextResponse.json({ error: error.issues }, { status: 400 })
     }
     console.error('Error updating itinerary:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: API_ERRORS.INTERNAL_ERROR }, { status: 500 })
   }
 }
 
@@ -334,7 +324,7 @@ export async function DELETE(
     const session = await getServerSession(authOptions)
 
     if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json({ error: API_ERRORS.UNAUTHORIZED }, { status: 401 })
     }
 
     const { id } = await params
@@ -343,12 +333,12 @@ export async function DELETE(
     const { isOwner, project } = await checkOwnerAccess(id, session.user.id)
 
     if (!project) {
-      return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+      return NextResponse.json({ error: API_ERRORS.PROJECT_NOT_FOUND }, { status: 404 })
     }
 
     if (!isOwner) {
       return NextResponse.json(
-        { error: 'Only project owner can delete the itinerary' },
+        { error: API_ERRORS.OWNER_ONLY_ITINERARY_DELETE },
         { status: 403 }
       )
     }
@@ -358,7 +348,7 @@ export async function DELETE(
     })
 
     if (!existingItinerary) {
-      return NextResponse.json({ error: 'Itinerary not found' }, { status: 404 })
+      return NextResponse.json({ error: API_ERRORS.ITINERARY_NOT_FOUND }, { status: 404 })
     }
 
     await prisma.itinerary.delete({
@@ -368,6 +358,6 @@ export async function DELETE(
     return new NextResponse(null, { status: 204 })
   } catch (error) {
     console.error('Error deleting itinerary:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json({ error: API_ERRORS.INTERNAL_ERROR }, { status: 500 })
   }
 }
