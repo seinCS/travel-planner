@@ -29,11 +29,6 @@ const mapContainerStyle = {
   height: '100%',
 }
 
-const defaultCenter = {
-  lat: 35.6762,
-  lng: 139.6503,
-}
-
 export function GoogleMap({ places, selectedPlaceId, onPlaceSelect, onOpenDetails, center }: GoogleMapProps) {
   const [map, setMap] = useState<google.maps.Map | null>(null)
 
@@ -66,12 +61,18 @@ export function GoogleMap({ places, selectedPlaceId, onPlaceSelect, onOpenDetail
   const selectedPlace = places.find((p) => p.id === selectedPlaceId)
 
   // 맵 중심점 메모이제이션 - hooks는 조건부 return 전에 호출해야 함 (Rules of Hooks)
-  const mapCenter = useMemo(() =>
-    center || (places.length > 0
-      ? { lat: places[0].latitude, lng: places[0].longitude }
-      : defaultCenter),
-    [center, places]
-  )
+  // 우선순위: center prop > places[0] > 기본값 (대한민국 중심)
+  const DEFAULT_CENTER = { lat: 37.5665, lng: 126.9780 } // 서울
+  const mapCenter = useMemo(() => {
+    if (center) return center
+    if (places.length > 0) {
+      return { lat: places[0].latitude, lng: places[0].longitude }
+    }
+    return DEFAULT_CENTER
+  }, [center, places])
+
+  // center와 places 모두 없는 경우 (기본값 사용 중)
+  const isUsingDefaultCenter = !center && places.length === 0
 
   // 마커 아이콘 캐싱 - isLoaded가 false면 빈 객체 반환
   // 의존성 배열: CATEGORY_STYLES는 lib/constants.ts에서 정의된 불변 상수이므로 의존성에서 제외
@@ -131,11 +132,17 @@ export function GoogleMap({ places, selectedPlaceId, onPlaceSelect, onOpenDetail
   }
 
   return (
-    <div data-testid="google-map" className="w-full h-full">
+    <div data-testid="google-map" className="w-full h-full relative">
+    {/* 기본 위치 사용 중 안내 */}
+    {isUsingDefaultCenter && (
+      <div className="absolute top-2 left-1/2 -translate-x-1/2 z-10 bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3 py-1.5 rounded-full shadow-sm">
+        장소를 추가하면 해당 위치로 이동합니다
+      </div>
+    )}
     <GoogleMapComponent
       mapContainerStyle={mapContainerStyle}
       center={mapCenter}
-      zoom={13}
+      zoom={isUsingDefaultCenter ? 5 : 13}
       onLoad={onLoad}
       onClick={() => onPlaceSelect(null)}
     >

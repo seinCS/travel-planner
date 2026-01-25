@@ -63,16 +63,31 @@ export function useProjectDetail(projectId: string) {
 
   // Map center state
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null)
+  const [mapCenterLoading, setMapCenterLoading] = useState(false)
+  const [mapCenterFailed, setMapCenterFailed] = useState(false)
 
   // Set map center based on destination
   useEffect(() => {
-    if (projectData?.destination && !mapCenter) {
+    if (projectData?.destination && !mapCenter && !mapCenterLoading && !mapCenterFailed) {
+      setMapCenterLoading(true)
       geocodeDestination(projectData.destination, projectData.country || undefined)
         .then((center) => {
-          if (center) setMapCenter(center)
+          if (center) {
+            setMapCenter(center)
+          } else {
+            console.warn('[useProjectDetail] Geocoding returned null for:', projectData.destination)
+            setMapCenterFailed(true)
+          }
+        })
+        .catch((error) => {
+          console.error('[useProjectDetail] Geocoding failed:', error)
+          setMapCenterFailed(true)
+        })
+        .finally(() => {
+          setMapCenterLoading(false)
         })
     }
-  }, [projectData?.destination, projectData?.country, mapCenter])
+  }, [projectData?.destination, projectData?.country, mapCenter, mapCenterLoading, mapCenterFailed])
 
   // Derived data
   const project = projectData ?? null
@@ -305,6 +320,7 @@ export function useProjectDetail(projectId: string) {
     images,
     textInputs,
     mapCenter,
+    mapCenterFailed,
     isLoading,
 
     // Computed

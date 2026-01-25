@@ -257,7 +257,34 @@ async function mockProjectsAPI(page: Page, projects: TestProject[] = [TEST_PROJE
   await mockProjectsPOST(page)
 }
 
+/** Geocode destination API 모킹 - 지도 초기 중심점용 */
+async function mockGeocodeDestinationAPI(page: Page): Promise<void> {
+  await page.route('**/api/geocode/destination*', async (route) => {
+    const url = new URL(route.request().url())
+    const destination = url.searchParams.get('destination')
+
+    // 도쿄 여행 프로젝트의 경우 도쿄 좌표 반환
+    if (destination === '도쿄') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ lat: 35.6762, lng: 139.6503 }),
+      })
+    } else {
+      // 기본 좌표 (서울)
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ lat: 37.5665, lng: 126.9780 }),
+      })
+    }
+  })
+}
+
 async function mockProjectDetailAPI(page: Page): Promise<void> {
+  // Geocode API 모킹 추가 (지도 초기 중심점)
+  await mockGeocodeDestinationAPI(page)
+
   await page.route('**/api/projects/*/places', async (route) => {
     await route.fulfill({
       status: 200,

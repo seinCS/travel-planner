@@ -28,11 +28,16 @@ export function PresenceIndicator({
 }: PresenceIndicatorProps) {
   const { members, currentUserId, isConnected } = usePresence(projectId)
 
-  // Memoize visible members to prevent unnecessary array creation on each render
-  const visibleMembers = useMemo(
-    () => members.slice(0, maxVisible),
-    [members, maxVisible]
-  )
+  // Memoize visible members with deduplication fallback
+  // Primary deduplication happens in RealtimeClient, but this is defensive
+  const visibleMembers = useMemo(() => {
+    const seen = new Set<string>()
+    return members.filter((member) => {
+      if (seen.has(member.id)) return false
+      seen.add(member.id)
+      return true
+    }).slice(0, maxVisible)
+  }, [members, maxVisible])
 
   const remainingCount = members.length - maxVisible
 

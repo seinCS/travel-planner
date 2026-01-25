@@ -267,3 +267,46 @@ test.describe('프로젝트 상세 페이지 - 분석 버튼', () => {
     await expect(analyzeButton.first()).toBeVisible()
   })
 })
+
+test.describe('프로젝트 상세 페이지 - 지도', () => {
+  // 참고: Google Maps API 테스트는 실제 API 키가 필요하므로 E2E 모킹 환경에서 제한적
+  // 실제 검증은 dev 서버 (npm run dev)에서 수동으로 확인 필요
+  // 검증 방법:
+  // 1. 프로젝트 상세 페이지 접속
+  // 2. 지도가 프로젝트 destination 위치(예: 도쿄)로 초기화되는지 확인
+  // 3. "위치 정보를 불러오는 중..." 메시지가 일시적으로 표시된 후 지도가 나타나는지 확인
+  // 4. 장소가 없는 새 프로젝트에서도 destination 위치가 표시되는지 확인
+
+  test.skip('지도 컴포넌트가 표시된다 (실제 API 키 필요)', async ({ projectDetailPage }) => {
+    await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
+    const viewport = projectDetailPage.viewportSize()
+
+    if (isMobilePhone(viewport)) {
+      const mapNavButton = projectDetailPage.locator('nav button').filter({ hasText: /지도/ })
+      if (await mapNavButton.isVisible().catch(() => false)) {
+        await mapNavButton.click()
+      }
+    }
+
+    const googleMap = projectDetailPage.locator('[data-testid="google-map"]')
+    await expect(googleMap).toBeVisible({ timeout: 10000 })
+  })
+
+  test.skip('지도가 프로젝트 위치로 초기화된다 (실제 API 키 필요)', async ({ projectDetailPage }) => {
+    await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
+    const viewport = projectDetailPage.viewportSize()
+
+    if (isMobilePhone(viewport)) {
+      const mapNavButton = projectDetailPage.locator('nav button').filter({ hasText: /지도/ })
+      if (await mapNavButton.isVisible().catch(() => false)) {
+        await mapNavButton.click()
+      }
+    }
+
+    const loadingMessage = projectDetailPage.getByText('위치 정보를 불러오는 중...')
+    const googleMap = projectDetailPage.locator('[data-testid="google-map"]')
+
+    await expect(googleMap.or(loadingMessage)).toBeVisible({ timeout: 10000 })
+    await expect(googleMap).toBeVisible({ timeout: 10000 })
+  })
+})

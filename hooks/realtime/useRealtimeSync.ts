@@ -105,9 +105,12 @@ export function useRealtimeSync(projectId: string | null) {
         unsubscribeSyncRef.current = null
       }
 
-      // Unsubscribe from realtime channel
+      // Unsubscribe from realtime channel (fire-and-forget with error handling)
+      // Note: useEffect cleanup can't be async, so we handle errors internally
       if (realtimeClient) {
-        realtimeClient.unsubscribe()
+        realtimeClient.unsubscribe().catch((error) => {
+          console.warn('[useRealtimeSync] Cleanup error (safe to ignore):', error)
+        })
       }
 
       setClient(null)
