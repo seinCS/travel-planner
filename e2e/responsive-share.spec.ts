@@ -120,7 +120,7 @@ test.describe('E2E-3: 공유 페이지 반응형 테스트', () => {
 
     // 스크롤하여 장소 목록이 보이도록 함
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight / 2))
-    await page.waitForTimeout(500)
+    await page.waitForLoadState('domcontentloaded')
 
     // 첫 번째 장소 클릭 - force 옵션 사용 (모바일에서 요소 겹침 문제 해결)
     const firstPlace = page.getByText(MOCK_SHARE_DATA.places[0].name).first()

@@ -26,7 +26,7 @@ function isDesktop(viewportWidth: number): boolean {
 test.describe('E2E-1: 프로젝트 상세 페이지 레이아웃', () => {
   test('E2E-1.1: 지도가 표시되고 스크롤 가능하다', async ({ projectDetailPage }) => {
     await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
-    await projectDetailPage.waitForTimeout(500)
+    await projectDetailPage.waitForLoadState('domcontentloaded')
 
     // The page should show project title (confirms we're on the right page)
     const projectTitle = projectDetailPage.getByText(TEST_PROJECT.name)
@@ -53,7 +53,7 @@ test.describe('E2E-1: 프로젝트 상세 페이지 레이아웃', () => {
     }
 
     await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
-    await projectDetailPage.waitForTimeout(500)
+    await projectDetailPage.waitForLoadState('domcontentloaded')
 
     // 모바일에서 탭 기반 싱글뷰 - MobileNavigation이 표시되어야 함
     const mobileNav = projectDetailPage.locator('[data-testid="mobile-nav"]')
@@ -77,7 +77,7 @@ test.describe('E2E-1: 프로젝트 상세 페이지 레이아웃', () => {
     }
 
     await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
-    await projectDetailPage.waitForTimeout(500)
+    await projectDetailPage.waitForLoadState('domcontentloaded')
 
     // 데스크톱에서 3-column 그리드 레이아웃 확인
     // lg:grid with grid-cols-[2fr_1fr_280px]
@@ -106,7 +106,7 @@ test.describe('E2E-1: 프로젝트 상세 페이지 레이아웃', () => {
     }
 
     await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
-    await projectDetailPage.waitForTimeout(500)
+    await projectDetailPage.waitForLoadState('domcontentloaded')
 
     // 화면 너비에 따른 레이아웃 확인
     if (isMobile(viewport.width)) {
@@ -117,7 +117,7 @@ test.describe('E2E-1: 프로젝트 상세 페이지 레이아웃', () => {
       // 목록 탭 클릭 시 장소 목록이 표시됨
       const listTab = mobileNav.getByRole('button').filter({ hasText: '목록' })
       await listTab.click()
-      await projectDetailPage.waitForTimeout(500)
+      await projectDetailPage.waitForLoadState('domcontentloaded')
 
       // Place list content should be visible (header or first place)
       const placeListHeader = projectDetailPage.getByText(/장소 목록/)
@@ -171,7 +171,7 @@ test.describe('FR-1: 지도 최소 높이 보장', () => {
 test.describe('FR-4: 장소 상세 패널 반응형', () => {
   test('장소 클릭 시 상세 정보가 표시된다', async ({ projectDetailPage }) => {
     await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
-    await projectDetailPage.waitForTimeout(500)
+    await projectDetailPage.waitForLoadState('domcontentloaded')
     const viewport = projectDetailPage.viewportSize()
 
     // On mobile (< 640px), need to switch to list tab first
@@ -179,7 +179,7 @@ test.describe('FR-4: 장소 상세 패널 반응형', () => {
       const listNavButton = projectDetailPage.locator('[data-testid="mobile-nav"] button').filter({ hasText: '목록' })
       await expect(listNavButton).toBeVisible()
       await listNavButton.click()
-      await projectDetailPage.waitForTimeout(500)
+      await projectDetailPage.waitForLoadState('domcontentloaded')
     }
 
     // Find the detail button directly (it's always in the DOM, just might need scrolling)
@@ -187,11 +187,11 @@ test.describe('FR-4: 장소 상세 패널 반응형', () => {
 
     // Scroll to the button to make it visible
     await detailButton.scrollIntoViewIfNeeded()
-    await projectDetailPage.waitForTimeout(200)
+    await projectDetailPage.waitForLoadState('domcontentloaded')
 
     // Click the detail button
     await detailButton.click({ force: true })
-    await projectDetailPage.waitForTimeout(500)
+    await projectDetailPage.waitForLoadState('domcontentloaded')
 
     // 상세 정보가 표시되는지 확인 (Sheet dialog or side panel)
     // Mobile/Tablet: Sheet with role="dialog" and SheetTitle "장소 상세"
@@ -219,14 +219,14 @@ test.describe('FR-4: 장소 상세 패널 반응형', () => {
     }
 
     await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
-    await projectDetailPage.waitForTimeout(500)
+    await projectDetailPage.waitForLoadState('domcontentloaded')
 
     // On mobile, need to switch to list tab first
     if (isMobile(viewport.width)) {
       const listNavButton = projectDetailPage.locator('[data-testid="mobile-nav"] button').filter({ hasText: '목록' })
       if (await listNavButton.isVisible()) {
         await listNavButton.click()
-        await projectDetailPage.waitForTimeout(300)
+        await projectDetailPage.waitForLoadState('domcontentloaded')
       }
     }
 
@@ -234,7 +234,7 @@ test.describe('FR-4: 장소 상세 패널 반응형', () => {
     const detailButton = projectDetailPage.getByRole('button', { name: '상세' }).first()
     await expect(detailButton).toBeVisible()
     await detailButton.click({ force: true })
-    await projectDetailPage.waitForTimeout(500)
+    await projectDetailPage.waitForLoadState('domcontentloaded')
 
     // Mobile/Tablet: Should show Sheet with role="dialog"
     const dialog = projectDetailPage.locator('[role="dialog"]')
@@ -255,13 +255,13 @@ test.describe('FR-4: 장소 상세 패널 반응형', () => {
     }
 
     await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
-    await projectDetailPage.waitForTimeout(500)
+    await projectDetailPage.waitForLoadState('domcontentloaded')
 
     // "상세" 버튼 클릭
     const detailButton = projectDetailPage.getByRole('button', { name: '상세' }).first()
     await expect(detailButton).toBeVisible()
     await detailButton.click()
-    await projectDetailPage.waitForTimeout(500)
+    await projectDetailPage.waitForLoadState('domcontentloaded')
 
     // 데스크톱에서는 사이드 패널 (fixed right-0, lg:block)
     // Check for the fixed side panel with class "fixed right-0 ... lg:block"
@@ -279,7 +279,7 @@ test.describe('FR-4: 장소 상세 패널 반응형', () => {
 test.describe('FR-5: 입력 기능 모바일 유지', () => {
   test('FR-5.1: 이미지 업로드 영역이 사용 가능하다', async ({ projectDetailPage }) => {
     await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
-    await projectDetailPage.waitForTimeout(500)
+    await projectDetailPage.waitForLoadState('domcontentloaded')
     const viewport = projectDetailPage.viewportSize()
 
     // Navigate to input area based on viewport
@@ -288,13 +288,13 @@ test.describe('FR-5: 입력 기능 모바일 유지', () => {
       const inputNavButton = projectDetailPage.locator('[data-testid="mobile-nav"] button').filter({ hasText: '추가' })
       await expect(inputNavButton).toBeVisible()
       await inputNavButton.click()
-      await projectDetailPage.waitForTimeout(300)
+      await projectDetailPage.waitForLoadState('domcontentloaded')
     } else if (viewport && isTablet(viewport.width)) {
       // Tablet: Click "입력" tab in sidebar
       const inputTab = projectDetailPage.getByRole('button', { name: /입력/ }).first()
       await expect(inputTab).toBeVisible()
       await inputTab.click()
-      await projectDetailPage.waitForTimeout(300)
+      await projectDetailPage.waitForLoadState('domcontentloaded')
     }
     // Desktop: Input area is always visible in 3rd column
 
@@ -303,7 +303,7 @@ test.describe('FR-5: 입력 기능 모바일 유지', () => {
     const isImageTabVisible = await imageTab.first().isVisible().catch(() => false)
     if (isImageTabVisible) {
       await imageTab.first().click()
-      await projectDetailPage.waitForTimeout(200)
+      await projectDetailPage.waitForLoadState('domcontentloaded')
     }
 
     // 업로드 영역 확인
@@ -313,7 +313,7 @@ test.describe('FR-5: 입력 기능 모바일 유지', () => {
 
   test('FR-5.2: 텍스트 입력 폼이 사용 가능하다', async ({ projectDetailPage }) => {
     await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
-    await projectDetailPage.waitForTimeout(500)
+    await projectDetailPage.waitForLoadState('domcontentloaded')
     const viewport = projectDetailPage.viewportSize()
 
     // Navigate to input area based on viewport
@@ -321,12 +321,12 @@ test.describe('FR-5: 입력 기능 모바일 유지', () => {
       const inputNavButton = projectDetailPage.locator('[data-testid="mobile-nav"] button').filter({ hasText: '추가' })
       await expect(inputNavButton).toBeVisible()
       await inputNavButton.click()
-      await projectDetailPage.waitForTimeout(500)
+      await projectDetailPage.waitForLoadState('domcontentloaded')
     } else if (viewport && isTablet(viewport.width)) {
       const inputTab = projectDetailPage.getByRole('button', { name: /입력/ }).first()
       await expect(inputTab).toBeVisible()
       await inputTab.click()
-      await projectDetailPage.waitForTimeout(500)
+      await projectDetailPage.waitForLoadState('domcontentloaded')
     }
 
     // 텍스트 탭 클릭 - InputTabs has tabs with icon + label
@@ -335,7 +335,7 @@ test.describe('FR-5: 입력 기능 모바일 유지', () => {
     await textTab.scrollIntoViewIfNeeded()
     await expect(textTab).toBeVisible({ timeout: 5000 })
     await textTab.click()
-    await projectDetailPage.waitForTimeout(300)
+    await projectDetailPage.waitForLoadState('domcontentloaded')
 
     // 텍스트 입력 필드 확인 (textarea with id="text-input")
     const textInput = projectDetailPage.locator('textarea#text-input')
@@ -348,7 +348,7 @@ test.describe('FR-5: 입력 기능 모바일 유지', () => {
 
   test('FR-5.3: URL 입력 폼이 사용 가능하다', async ({ projectDetailPage }) => {
     await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
-    await projectDetailPage.waitForTimeout(500)
+    await projectDetailPage.waitForLoadState('domcontentloaded')
     const viewport = projectDetailPage.viewportSize()
 
     // Navigate to input area based on viewport
@@ -356,12 +356,12 @@ test.describe('FR-5: 입력 기능 모바일 유지', () => {
       const inputNavButton = projectDetailPage.locator('[data-testid="mobile-nav"] button').filter({ hasText: '추가' })
       await expect(inputNavButton).toBeVisible()
       await inputNavButton.click()
-      await projectDetailPage.waitForTimeout(500)
+      await projectDetailPage.waitForLoadState('domcontentloaded')
     } else if (viewport && isTablet(viewport.width)) {
       const inputTab = projectDetailPage.getByRole('button', { name: /입력/ }).first()
       await expect(inputTab).toBeVisible()
       await inputTab.click()
-      await projectDetailPage.waitForTimeout(500)
+      await projectDetailPage.waitForLoadState('domcontentloaded')
     }
 
     // URL 탭 클릭 - InputTabs has tabs with icon + label
@@ -369,7 +369,7 @@ test.describe('FR-5: 입력 기능 모바일 유지', () => {
     await urlTab.scrollIntoViewIfNeeded()
     await expect(urlTab).toBeVisible({ timeout: 5000 })
     await urlTab.click()
-    await projectDetailPage.waitForTimeout(300)
+    await projectDetailPage.waitForLoadState('domcontentloaded')
 
     // URL 입력 필드 확인 (input with id="url-input" and type="url")
     const urlInput = projectDetailPage.locator('input#url-input')
@@ -401,7 +401,7 @@ test.describe('뷰포트 리사이즈 테스트', () => {
 
     // 모바일 크기로 리사이즈
     await projectDetailPage.setViewportSize({ width: 375, height: 667 })
-    await projectDetailPage.waitForTimeout(500) // 레이아웃 변경 대기
+    await projectDetailPage.waitForLoadState('domcontentloaded') // 레이아웃 변경 대기
 
     // 모바일 레이아웃 확인 (그리드가 아닌 flex-col 또는 block)
     // 리사이즈 후 레이아웃이 변경되었는지 확인
@@ -421,13 +421,13 @@ test.describe('Mobile Tab Switching', () => {
     }
 
     await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
-    await projectDetailPage.waitForTimeout(500)
+    await projectDetailPage.waitForLoadState('domcontentloaded')
 
     // Click list tab in mobile navigation
     const listButton = projectDetailPage.locator('[data-testid="mobile-nav"] button').filter({ hasText: '목록' })
     await expect(listButton).toBeVisible()
     await listButton.click()
-    await projectDetailPage.waitForTimeout(500) // Wait for content switch
+    await projectDetailPage.waitForLoadState('domcontentloaded') // Wait for content switch
 
     // Verify list content is visible (place header or first place)
     const listHeader = projectDetailPage.getByText(/장소 목록/)
@@ -454,13 +454,13 @@ test.describe('Mobile Tab Switching', () => {
     }
 
     await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
-    await projectDetailPage.waitForTimeout(500)
+    await projectDetailPage.waitForLoadState('domcontentloaded')
 
     // Click list tab to show places
     const listButton = projectDetailPage.locator('[data-testid="mobile-nav"] button').filter({ hasText: '목록' })
     await expect(listButton).toBeVisible()
     await listButton.click()
-    await projectDetailPage.waitForTimeout(500)
+    await projectDetailPage.waitForLoadState('domcontentloaded')
 
     // Verify first place is visible (list is showing)
     const firstPlace = projectDetailPage.getByText(TEST_PLACES[0].name).first()
@@ -486,7 +486,7 @@ test.describe('Tablet 2-Column Layout', () => {
     }
 
     await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
-    await projectDetailPage.waitForTimeout(500)
+    await projectDetailPage.waitForLoadState('domcontentloaded')
 
     // Project title should be visible (page loaded correctly)
     const projectTitle = projectDetailPage.getByText(TEST_PROJECT.name)
@@ -514,7 +514,7 @@ test.describe('Tablet 2-Column Layout', () => {
     }
 
     await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
-    await projectDetailPage.waitForTimeout(500)
+    await projectDetailPage.waitForLoadState('domcontentloaded')
 
     // By default, list tab should be active - verify first place is visible
     const firstPlace = projectDetailPage.getByText(TEST_PLACES[0].name).first()
@@ -524,7 +524,7 @@ test.describe('Tablet 2-Column Layout', () => {
     const inputTab = projectDetailPage.getByRole('button', { name: /입력/ }).first()
     await expect(inputTab).toBeVisible()
     await inputTab.click()
-    await projectDetailPage.waitForTimeout(300)
+    await projectDetailPage.waitForLoadState('domcontentloaded')
 
     // Verify input content is shown (image/text/url tabs should be visible)
     const imageTab = projectDetailPage.getByRole('button', { name: /이미지|📸/ })
@@ -541,7 +541,7 @@ test.describe('Tablet 2-Column Layout', () => {
     // Switch back to list tab
     const listTab = projectDetailPage.getByRole('button', { name: /목록/ }).first()
     await listTab.click()
-    await projectDetailPage.waitForTimeout(300)
+    await projectDetailPage.waitForLoadState('domcontentloaded')
 
     // Verify place list content is shown again
     await expect(firstPlace).toBeVisible()

@@ -1,7 +1,68 @@
-import { test as base, Page } from '@playwright/test'
+import { test as base, Page, BrowserContext, Browser } from '@playwright/test'
+
+// ============================================
+// TypeScript 인터페이스 정의
+// ============================================
+
+/** 테스트 사용자 타입 */
+export interface TestUser {
+  id: string
+  name: string
+  email: string
+  image: string
+}
+
+/** 테스트 프로젝트 타입 */
+export interface TestProject {
+  id: string
+  name: string
+  destination: string
+  country: string
+  createdAt: string
+  updatedAt: string
+  _count: {
+    places: number
+    images: number
+  }
+}
+
+/** 테스트 장소 타입 */
+export interface TestPlace {
+  id: string
+  name: string
+  category: string
+  comment: string
+  latitude: number
+  longitude: number
+  status: string
+  googlePlaceId: string
+  formattedAddress: string
+  googleMapsUrl: string
+  rating: number
+  userRatingsTotal: number
+  priceLevel: number | null
+}
+
+/** 테스트 이미지 타입 */
+export interface TestImage {
+  id: string
+  url: string
+  status: string
+  createdAt: string
+}
+
+/** 인증된 컨텍스트 반환 타입 */
+interface AuthenticatedContext {
+  context: BrowserContext
+  page: Page
+}
+
+// ============================================
+// 테스트 데이터
+// ============================================
 
 // 테스트용 사용자 데이터
-export const TEST_USER = {
+export const TEST_USER: TestUser = {
   id: 'test-user-id-12345',
   name: 'Test User',
   email: 'test@example.com',
@@ -9,7 +70,7 @@ export const TEST_USER = {
 }
 
 // 테스트용 프로젝트 데이터
-export const TEST_PROJECT = {
+export const TEST_PROJECT: TestProject = {
   id: 'test-project-id-12345',
   name: '도쿄 여행 2026',
   destination: '도쿄',
@@ -23,7 +84,7 @@ export const TEST_PROJECT = {
 }
 
 // 테스트용 장소 데이터
-export const TEST_PLACES = [
+export const TEST_PLACES: TestPlace[] = [
   {
     id: 'place-1',
     name: '센소지',
@@ -72,7 +133,7 @@ export const TEST_PLACES = [
 ]
 
 // 테스트용 이미지 데이터
-export const TEST_IMAGES = [
+export const TEST_IMAGES: TestImage[] = [
   {
     id: 'image-1',
     url: 'https://example.com/image1.jpg',
@@ -91,7 +152,7 @@ export const TEST_IMAGES = [
 export const TEST_SHARE_TOKEN = 'test-share-token-abc123'
 
 // 세션 모킹 - NextAuth의 /api/auth/session 엔드포인트를 모킹
-async function mockAuthSession(page: Page) {
+async function mockAuthSession(page: Page): Promise<void> {
   await page.route('**/api/auth/session', async (route) => {
     await route.fulfill({
       status: 200,
@@ -110,7 +171,7 @@ async function mockAuthSession(page: Page) {
 }
 
 // API 모킹 함수들
-async function mockProjectsAPI(page: Page, projects = [TEST_PROJECT]) {
+async function mockProjectsAPI(page: Page, projects: TestProject[] = [TEST_PROJECT]): Promise<void> {
   await page.route('**/api/projects', async (route) => {
     const method = route.request().method()
 
@@ -140,7 +201,7 @@ async function mockProjectsAPI(page: Page, projects = [TEST_PROJECT]) {
   })
 }
 
-async function mockProjectDetailAPI(page: Page) {
+async function mockProjectDetailAPI(page: Page): Promise<void> {
   await page.route('**/api/projects/*/places', async (route) => {
     await route.fulfill({
       status: 200,
@@ -210,7 +271,7 @@ async function mockProjectDetailAPI(page: Page) {
   })
 }
 
-async function mockShareAPI(page: Page) {
+async function mockShareAPI(page: Page): Promise<void> {
   await page.route(`**/api/share/${TEST_SHARE_TOKEN}`, async (route) => {
     await route.fulfill({
       status: 200,
@@ -239,7 +300,7 @@ async function mockShareAPI(page: Page) {
 }
 
 // 공통 컨텍스트 생성 헬퍼
-async function createAuthenticatedContext(browser: import('@playwright/test').Browser) {
+async function createAuthenticatedContext(browser: Browser): Promise<AuthenticatedContext> {
   const context = await browser.newContext({
     extraHTTPHeaders: {
       'x-e2e-test': 'true',

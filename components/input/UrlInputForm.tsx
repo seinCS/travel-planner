@@ -172,7 +172,7 @@ export function UrlInputForm({ projectId, onSubmitComplete, disabled }: UrlInput
   )
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" data-testid="url-input-form">
       <div className="space-y-2">
         <Label htmlFor="url-input">URL 입력</Label>
         <div className="relative">

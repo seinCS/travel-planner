@@ -108,7 +108,7 @@ export function PlaceEditModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[425px]" data-testid="place-edit-modal">
         <DialogHeader>
           <DialogTitle>장소 수정</DialogTitle>
         </DialogHeader>

@@ -15,21 +15,22 @@ function isTablet(viewport: { width: number; height: number } | null): boolean {
 // Helper to navigate to input section
 async function navigateToInputSection(page: any, viewport: any) {
   // Wait for page to stabilize first
-  await page.waitForTimeout(500)
+  await page.waitForLoadState('domcontentloaded')
 
   if (isMobilePhone(viewport)) {
     // Mobile phone: Click bottom navigation "추가" button
     const addNavButton = page.locator('nav button').filter({ hasText: /추가/ })
     if (await addNavButton.isVisible().catch(() => false)) {
       await addNavButton.click()
-      await page.waitForTimeout(500)
+      // Wait for input section to be visible
+      await page.waitForLoadState('domcontentloaded')
     }
   } else if (isTablet(viewport)) {
     // Tablet: Click "입력" tab button in side panel
     const inputTabButton = page.getByRole('button', { name: /입력/ })
     if (await inputTabButton.isVisible().catch(() => false)) {
       await inputTabButton.click()
-      await page.waitForTimeout(500)
+      await page.waitForLoadState('domcontentloaded')
     }
   }
   // Desktop: Input section is always visible alongside place list
@@ -38,21 +39,21 @@ async function navigateToInputSection(page: any, viewport: any) {
 // Helper to ensure place list is visible
 async function ensurePlaceListVisible(page: any, viewport: any) {
   // Wait for page to stabilize first
-  await page.waitForTimeout(500)
+  await page.waitForLoadState('domcontentloaded')
 
   if (isMobilePhone(viewport)) {
     // Mobile phone: Click bottom navigation "목록" button if not already selected
     const listNavButton = page.locator('nav button').filter({ hasText: /목록/ })
     if (await listNavButton.isVisible().catch(() => false)) {
       await listNavButton.click()
-      await page.waitForTimeout(500)
+      await page.waitForLoadState('domcontentloaded')
     }
   } else if (isTablet(viewport)) {
     // Tablet: Click "목록" tab button in side panel (it's already visible by default)
     const listTabButton = page.getByRole('button', { name: /목록/ })
     if (await listTabButton.isVisible().catch(() => false)) {
       await listTabButton.click()
-      await page.waitForTimeout(500)
+      await page.waitForLoadState('domcontentloaded')
     }
   }
   // Desktop: Place list is always visible
@@ -116,7 +117,7 @@ test.describe('프로젝트 상세 페이지 - 장소 목록', () => {
     await ensurePlaceListVisible(projectDetailPage, viewport)
 
     // Wait for list to render
-    await projectDetailPage.waitForTimeout(500)
+    await projectDetailPage.waitForLoadState('domcontentloaded')
 
     // Verify places exist in DOM (they may be in scrollable container)
     for (const place of TEST_PLACES) {
@@ -174,8 +175,8 @@ test.describe('프로젝트 상세 페이지 - 입력 탭', () => {
 
     await navigateToInputSection(projectDetailPage, viewport)
 
-    // Wait for content to load and animations to complete
-    await projectDetailPage.waitForTimeout(1000)
+    // Wait for content to load
+    await projectDetailPage.waitForLoadState('networkidle')
 
     // Check various indicators that upload area is present
     // 1. "파일 선택" button
@@ -201,13 +202,12 @@ test.describe('프로젝트 상세 페이지 - 입력 탭', () => {
 
     const textTab = projectDetailPage.getByRole('button', { name: /📝|텍스트/ })
     await textTab.first().click()
-    await projectDetailPage.waitForTimeout(300)
 
-    await expect(
-      projectDetailPage.getByPlaceholder(/여행지 정보|장소 정보|텍스트/i).or(
-        projectDetailPage.locator('textarea')
-      )
-    ).toBeVisible()
+    // Wait for the textarea to be visible
+    const textInput = projectDetailPage.getByPlaceholder(/여행지 정보|장소 정보|텍스트/i).or(
+      projectDetailPage.locator('textarea')
+    )
+    await expect(textInput).toBeVisible({ timeout: 5000 })
   })
 
   test('URL 탭 클릭 시 URL 입력 폼이 표시된다', async ({ projectDetailPage }) => {
@@ -218,13 +218,12 @@ test.describe('프로젝트 상세 페이지 - 입력 탭', () => {
 
     const urlTab = projectDetailPage.getByRole('button', { name: /🔗|URL/ })
     await urlTab.first().click()
-    await projectDetailPage.waitForTimeout(300)
 
-    await expect(
-      projectDetailPage.getByPlaceholder(/URL|블로그|https/i).or(
-        projectDetailPage.locator('input[type="url"], input[type="text"]').filter({ hasText: '' }).first()
-      )
-    ).toBeVisible()
+    // Wait for the URL input to be visible
+    const urlInput = projectDetailPage.getByPlaceholder(/URL|블로그|https/i).or(
+      projectDetailPage.locator('input[type="url"], input[type="text"]').filter({ hasText: '' }).first()
+    )
+    await expect(urlInput).toBeVisible({ timeout: 5000 })
   })
 })
 

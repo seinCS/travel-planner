@@ -51,7 +51,7 @@ export function PlaceDetailsPanel({ placeId, onClose, shareToken }: PlaceDetails
   const categoryStyle = CATEGORY_STYLES[p.category as keyof typeof CATEGORY_STYLES] || CATEGORY_STYLES.other
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full" data-testid="place-details-panel">
       {/* 헤더 */}
       <div className="p-4 border-b flex-shrink-0">
         <div className="flex justify-between items-start">

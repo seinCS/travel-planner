@@ -8,21 +8,41 @@ dotenv.config({ path: path.resolve(__dirname, '.env.local') })
 
 export default defineConfig({
   testDir: './e2e',
+  testMatch: '**/*.spec.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: process.env.CI ? 2 : undefined,
   reporter: [['html'], ['list']],
+
+  // Global timeout settings
+  timeout: 30 * 1000, // 30 seconds per test
+  expect: {
+    timeout: 5 * 1000, // 5 seconds for assertions
+  },
+
   use: {
     baseURL: 'http://localhost:3000',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
+    actionTimeout: 10 * 1000, // 10 seconds for actions
+    navigationTimeout: 15 * 1000, // 15 seconds for navigation
   },
   projects: [
     // Desktop Chrome (기본)
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
+    },
+    // Desktop Firefox
+    {
+      name: 'firefox',
+      use: { ...devices['Desktop Firefox'] },
+    },
+    // Desktop Safari (WebKit)
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'] },
     },
     // Mobile - iPhone SE (최소 모바일, 375px) - Chromium 기반
     {
