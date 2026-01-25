@@ -6,6 +6,11 @@ export type ProjectRole = 'owner' | 'member' | null
 type BaseProjectFields = {
   id: string
   userId: string
+  name: string
+  destination: string
+  country: string | null
+  createdAt: Date
+  updatedAt: Date
 }
 
 // 추가 필드 타입
@@ -37,10 +42,15 @@ export async function checkProjectAccess(
   userId: string,
   options?: ProjectAccessOptions
 ): Promise<ProjectAccessResult> {
-  // select 객체 동적 구성
+  // select 객체 동적 구성 - 기본 필드들 포함
   const selectFields: Record<string, boolean | object> = {
     id: true,
     userId: true,
+    name: true,
+    destination: true,
+    country: true,
+    createdAt: true,
+    updatedAt: true,
     members: {
       where: { userId },
       select: { userId: true },
@@ -66,10 +76,7 @@ export async function checkProjectAccess(
   // members 필드 제거 후 반환
   const { members, ...projectData } = project as {
     members?: { userId: string }[]
-    id: string
-    userId: string
-    [key: string]: unknown
-  }
+  } & BaseProjectFields & AdditionalProjectFields
 
   // Owner 확인
   if (projectData.userId === userId) {
@@ -108,10 +115,15 @@ export async function checkOwnerAccess(
   userId: string,
   options?: ProjectAccessOptions
 ): Promise<OwnerAccessResult> {
-  // select 객체 동적 구성
+  // select 객체 동적 구성 - 기본 필드들 포함
   const selectFields: Record<string, boolean | object> = {
     id: true,
     userId: true,
+    name: true,
+    destination: true,
+    country: true,
+    createdAt: true,
+    updatedAt: true,
   }
 
   // 추가 필드 병합

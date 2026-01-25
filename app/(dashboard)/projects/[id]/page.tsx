@@ -76,6 +76,7 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
     images,
     textInputs,
     mapCenter,
+    mapCenterFailed,
     isLoading,
     pendingImageCount,
     failedImageCount,

@@ -39,7 +39,10 @@ export function usePresence(projectId: string | null) {
     setClient(realtimeClient)
 
     return () => {
-      realtimeClient.unsubscribe()
+      // Fire-and-forget cleanup with error handling
+      realtimeClient.unsubscribe().catch((error) => {
+        console.warn('[usePresence] Cleanup error (safe to ignore):', error)
+      })
       setClient(null)
       setMembers([])
     }

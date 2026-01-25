@@ -229,15 +229,37 @@ export class ProjectRealtimeClient {
 
   /**
    * Unsubscribe from the channel and clean up
+   *
+   * Safe to call multiple times - will only perform cleanup once.
    */
   async unsubscribe(): Promise<void> {
-    if (this.channel) {
-      await this.channel.untrack()
-      await this.supabase.removeChannel(this.channel)
-      this.channel = null
+    // Prevent duplicate cleanup
+    if (!this.isSubscribed && !this.channel) {
+      return
     }
 
+    // Mark as unsubscribed immediately to prevent race conditions
     this.isSubscribed = false
+
+    const channelToClean = this.channel
+    this.channel = null
+
+    if (channelToClean) {
+      try {
+        await channelToClean.untrack()
+      } catch (error) {
+        console.warn('[RealtimeClient] Error during untrack:', error)
+      }
+
+      try {
+        if (this.supabase) {
+          await this.supabase.removeChannel(channelToClean)
+        }
+      } catch (error) {
+        console.warn('[RealtimeClient] Error during removeChannel:', error)
+      }
+    }
+
     this.syncCallbacks.clear()
     this.presenceCallbacks.clear()
     this.currentUser = null
@@ -254,25 +276,33 @@ export class ProjectRealtimeClient {
 
   /**
    * Get the current presence list
+   *
+   * Note: Supabase presence can have multiple entries for the same user
+   * (e.g., multiple tabs/sessions). We deduplicate by user ID, keeping
+   * the most recent entry (based on onlineAt timestamp).
    */
   getPresenceList(): PresenceState[] {
     if (!this.channel) return []
 
     const presenceState = this.channel.presenceState()
-    const presences: PresenceState[] = []
+    const presenceMap = new Map<string, PresenceState>()
 
     Object.values(presenceState).forEach((presenceList) => {
       presenceList.forEach((presence) => {
         // Use type guard instead of unsafe type assertion
         if (isPresenceState(presence)) {
-          presences.push(presence)
+          const existing = presenceMap.get(presence.id)
+          // Keep the most recent entry for each user
+          if (!existing || presence.onlineAt > existing.onlineAt) {
+            presenceMap.set(presence.id, presence)
+          }
         } else {
           console.warn('[RealtimeClient] Invalid presence state:', presence)
         }
       })
     })
 
-    return presences
+    return Array.from(presenceMap.values())
   }
 
   /**
