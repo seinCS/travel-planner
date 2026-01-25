@@ -29,6 +29,7 @@ export function usePlaceDetails(placeId: string | undefined, options: UsePlaceDe
     {
       revalidateOnFocus: false,
       dedupingInterval: 60000, // Cache for 1 minute
+      keepPreviousData: false, // 새 placeId로 전환 시 이전 데이터 제거
     }
   )
 

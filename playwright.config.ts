@@ -11,7 +11,8 @@ export default defineConfig({
   testMatch: '**/*.spec.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
+  // CI에서 재시도 1회로 제한 - flaky 테스트를 숨기지 않고 수정 권장
+  retries: process.env.CI ? 1 : 0,
   workers: process.env.CI ? 2 : undefined,
   reporter: [['html'], ['list']],
 
@@ -74,6 +75,20 @@ export default defineConfig({
         hasTouch: true,
       },
     },
+    // Mobile - iPhone SE (WebKit 기반, 실제 Safari 엔진)
+    {
+      name: 'mobile-iphone-se-webkit',
+      use: {
+        ...devices['iPhone SE'],
+      },
+    },
+    // Mobile - iPhone 14 (WebKit 기반, 실제 Safari 엔진)
+    {
+      name: 'mobile-iphone-14-webkit',
+      use: {
+        ...devices['iPhone 14'],
+      },
+    },
     // Tablet - iPad Mini (768px) - Chromium 기반
     {
       name: 'tablet-ipad-mini',
@@ -82,6 +97,13 @@ export default defineConfig({
         viewport: { width: 768, height: 1024 },
         isMobile: true,
         hasTouch: true,
+      },
+    },
+    // Tablet - iPad (WebKit 기반, 실제 Safari 엔진)
+    {
+      name: 'tablet-ipad-webkit',
+      use: {
+        ...devices['iPad (gen 7)'],
       },
     },
     // Windows 노트북 (소, 1366px)
