@@ -125,9 +125,12 @@ test.describe('TC-01/02: 프로젝트 진입 시 지도 렌더링', () => {
     // 3. 로딩 중 메시지
     const loadingMessage = projectDetailPage.getByText('지도 로딩 중...')
 
-    // 지도 또는 로딩 메시지 중 하나는 표시되어야 함
-    // 약간 대기하여 로딩 상태를 확인
-    await projectDetailPage.waitForTimeout(1000)
+    // 지도 또는 로딩 메시지 중 하나가 나타날 때까지 대기 (더 정확한 대기)
+    await Promise.race([
+      googleMapByTestId.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {}),
+      googleMapRegion.first().waitFor({ state: 'visible', timeout: 5000 }).catch(() => {}),
+      loadingMessage.first().waitFor({ state: 'visible', timeout: 5000 }).catch(() => {}),
+    ])
 
     const isMapByTestIdVisible = await googleMapByTestId.isVisible().catch(() => false)
     const isMapRegionVisible = await googleMapRegion.first().isVisible().catch(() => false)
@@ -142,8 +145,13 @@ test.describe('TC-01/02: 프로젝트 진입 시 지도 렌더링', () => {
 
     await navigateToMapTab(projectDetailPage)
 
-    // 약간의 대기 (지도 로드)
-    await projectDetailPage.waitForTimeout(1000)
+    // 지도 또는 지도 region이 로드될 때까지 대기
+    const googleMap = projectDetailPage.locator('[data-testid="google-map"]')
+    const mapRegion = projectDetailPage.getByRole('region', { name: 'Map' })
+    await Promise.race([
+      googleMap.waitFor({ state: 'visible', timeout: 10000 }).catch(() => {}),
+      mapRegion.first().waitFor({ state: 'visible', timeout: 10000 }).catch(() => {}),
+    ])
 
     // "장소를 추가하면 해당 위치로 이동합니다" 메시지는 장소가 있으면 표시되지 않아야 함
     const hintMessage = projectDetailPage.getByText(/장소를 추가하면/)
@@ -252,13 +260,14 @@ test.describe('TC-05: Day 선택 시 동작', () => {
     // 일정 탭으로 이동
     await navigateToItineraryTab(projectDetailPage)
 
-    // 약간의 대기
-    await projectDetailPage.waitForTimeout(500)
-
     // 일정 관련 UI가 표시되는지 확인
     // 일정이 있으면 Day 버튼, 없으면 "일정 만들기" 또는 "일정이 없습니다" 메시지
     const dayContent = projectDetailPage.getByText(/Day \d|일정 만들기|일정이 없습니다/)
-    const hasItineraryUI = await dayContent.first().isVisible({ timeout: 5000 }).catch(() => false)
+
+    // 콘텐츠가 나타날 때까지 대기 (timeout 사용 대신)
+    await dayContent.first().waitFor({ state: 'visible', timeout: 5000 }).catch(() => {})
+
+    const hasItineraryUI = await dayContent.first().isVisible({ timeout: 1000 }).catch(() => false)
 
     // 또는 일정 관련 컨텐츠가 메인 영역에 표시
     const mainContent = projectDetailPage.locator('main')
@@ -330,14 +339,19 @@ test.describe('TC-06: 모바일 뷰 테스트', () => {
 
       // 지도 탭으로 자동 이동되어야 함
       await projectDetailPage.waitForLoadState('domcontentloaded')
-      await projectDetailPage.waitForTimeout(500)
 
       // 지도가 표시됨 (data-testid 또는 Map region)
       const googleMap = projectDetailPage.locator('[data-testid="google-map"]')
       const mapRegion = projectDetailPage.getByRole('region', { name: 'Map' })
 
-      const isMapByTestIdVisible = await googleMap.isVisible({ timeout: 3000 }).catch(() => false)
-      const isMapRegionVisible = await mapRegion.first().isVisible({ timeout: 3000 }).catch(() => false)
+      // 지도가 나타날 때까지 대기 (timeout 대신)
+      await Promise.race([
+        googleMap.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {}),
+        mapRegion.first().waitFor({ state: 'visible', timeout: 5000 }).catch(() => {}),
+      ])
+
+      const isMapByTestIdVisible = await googleMap.isVisible({ timeout: 1000 }).catch(() => false)
+      const isMapRegionVisible = await mapRegion.first().isVisible({ timeout: 1000 }).catch(() => false)
       expect(isMapByTestIdVisible || isMapRegionVisible).toBe(true)
     }
   })

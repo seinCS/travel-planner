@@ -4,13 +4,13 @@ import { useCallback, useState, useMemo, useEffect, useRef } from 'react'
 import { GoogleMap as GoogleMapComponent, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api'
 import { CATEGORY_STYLES } from '@/lib/constants'
 
-// 지도 설정 상수
-const MAP_CONFIG = {
+// 지도 설정 상수 (불변 객체로 정의)
+const MAP_CONFIG = Object.freeze({
   DEFAULT_ZOOM_NO_PLACES: 11,
   MIN_ZOOM: 10,
   MAX_ZOOM: 16,
-  DEFAULT_CENTER: { lat: 37.5665, lng: 126.9780 },
-} as const
+  DEFAULT_CENTER: Object.freeze({ lat: 37.5665, lng: 126.9780 }),
+})
 
 // 지도에 표시하기 위한 최소 장소 정보
 interface MapPlace {
@@ -40,37 +40,51 @@ interface GoogleMapProps {
 
 /**
  * 히든 핀을 포함한 bounds 계산
+ * @returns bounds 객체와 단일 점 여부
  */
 const calculateBoundsWithHiddenPin = (
   places: MapPlace[],
   destinationCenter?: { lat: number; lng: number }
-): google.maps.LatLngBounds => {
+): { bounds: google.maps.LatLngBounds; isSinglePoint: boolean } => {
   const bounds = new google.maps.LatLngBounds()
+  let pointCount = 0
 
   // 1. 히든 핀 (destination) 추가
   if (destinationCenter) {
     bounds.extend(destinationCenter)
+    pointCount++
   }
 
   // 2. 실제 장소들 추가
   places.forEach((place) => {
     bounds.extend({ lat: place.latitude, lng: place.longitude })
+    pointCount++
   })
 
-  return bounds
+  // 단일 점 여부 반환 (fitBounds가 예상치 못한 줌을 설정할 수 있음)
+  return { bounds, isSinglePoint: pointCount <= 1 }
 }
 
 /**
  * zoom 제한이 적용된 fitBounds
+ * @returns 리스너 정리 함수 (컴포넌트 unmount 시 호출 필요)
  */
 const fitBoundsWithLimits = (
   map: google.maps.Map,
-  bounds: google.maps.LatLngBounds
-): void => {
+  bounds: google.maps.LatLngBounds,
+  isSinglePoint: boolean = false
+): (() => void) => {
+  // 단일 점인 경우 fitBounds 대신 setCenter + setZoom 사용
+  if (isSinglePoint) {
+    map.setCenter(bounds.getCenter())
+    map.setZoom(MAP_CONFIG.DEFAULT_ZOOM_NO_PLACES)
+    return () => {} // 정리할 리스너 없음
+  }
+
   map.fitBounds(bounds)
 
   // fitBounds 완료 후 zoom 보정
-  google.maps.event.addListenerOnce(map, 'idle', () => {
+  const listener = google.maps.event.addListenerOnce(map, 'idle', () => {
     const zoom = map.getZoom()
     if (zoom !== undefined) {
       if (zoom > MAP_CONFIG.MAX_ZOOM) {
@@ -80,6 +94,13 @@ const fitBoundsWithLimits = (
       }
     }
   })
+
+  // 리스너 정리 함수 반환
+  return () => {
+    if (listener) {
+      google.maps.event.removeListener(listener)
+    }
+  }
 }
 
 const mapContainerStyle = {
@@ -99,19 +120,28 @@ export function GoogleMap({
 }: GoogleMapProps) {
   const [map, setMap] = useState<google.maps.Map | null>(null)
   const prevSelectedPlaceIdRef = useRef<string | null>(null)
+  const fitBoundsCleanupRef = useRef<(() => void) | null>(null)
 
   // Google Maps API 키 검증
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-  if (!apiKey && typeof window !== 'undefined') {
-    console.error(
-      '[GoogleMap] NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is not defined. ' +
-      'Please set this environment variable to enable Google Maps.'
-    )
-  }
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: apiKey || '',
   })
+
+  // [Critical] API 키가 없으면 에러 UI 반환
+  if (!apiKey) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gray-100">
+        <div className="text-center p-4">
+          <p className="text-red-500 font-medium">Google Maps API 키가 설정되지 않았습니다.</p>
+          <p className="text-gray-500 text-sm mt-1">
+            환경 변수 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY를 설정해주세요.
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   const onLoad = useCallback((map: google.maps.Map) => {
     setMap(map)
@@ -122,6 +152,12 @@ export function GoogleMap({
   useEffect(() => {
     if (!map) return
     if (fitBoundsKey === undefined) return
+
+    // 이전 리스너 정리 (메모리 누수 방지)
+    if (fitBoundsCleanupRef.current) {
+      fitBoundsCleanupRef.current()
+      fitBoundsCleanupRef.current = null
+    }
 
     // 장소가 없고 destinationCenter가 있는 경우
     if (places.length === 0 && destinationCenter) {
@@ -139,10 +175,22 @@ export function GoogleMap({
 
     // 장소가 있는 경우 - 히든 핀 포함 fitBounds
     if (places.length > 0) {
-      const bounds = calculateBoundsWithHiddenPin(places, destinationCenter)
-      fitBoundsWithLimits(map, bounds)
+      const { bounds, isSinglePoint } = calculateBoundsWithHiddenPin(places, destinationCenter)
+      fitBoundsCleanupRef.current = fitBoundsWithLimits(map, bounds, isSinglePoint)
+    }
+
+    // cleanup: 컴포넌트 unmount 또는 의존성 변경 시 리스너 정리
+    return () => {
+      if (fitBoundsCleanupRef.current) {
+        fitBoundsCleanupRef.current()
+        fitBoundsCleanupRef.current = null
+      }
     }
   }, [map, fitBoundsKey, places, destinationCenter])
+
+  // places를 ref로 저장하여 useEffect 의존성에서 제거 (불필요한 panTo 방지)
+  const placesRef = useRef<MapPlace[]>(places)
+  placesRef.current = places
 
   // 장소 선택 시 panTo (enablePanToOnSelect가 true일 때만)
   useEffect(() => {
@@ -155,12 +203,13 @@ export function GoogleMap({
 
     if (!selectedPlaceId) return
 
-    const place = places.find((p) => p.id === selectedPlaceId)
+    // placesRef.current 사용하여 places 의존성 제거
+    const place = placesRef.current.find((p) => p.id === selectedPlaceId)
     if (place) {
       map.panTo({ lat: place.latitude, lng: place.longitude })
       // zoom은 유지 (변경하지 않음)
     }
-  }, [map, selectedPlaceId, places, enablePanToOnSelect])
+  }, [map, selectedPlaceId, enablePanToOnSelect])
 
   const selectedPlace = places.find((p) => p.id === selectedPlaceId)
 
@@ -179,8 +228,8 @@ export function GoogleMap({
   const isUsingDefaultCenter = !center && !destinationCenter && places.length === 0
 
   // 마커 아이콘 캐싱 - isLoaded가 false면 빈 객체 반환
-  // 의존성 배열: CATEGORY_STYLES는 lib/constants.ts에서 정의된 불변 상수이므로 의존성에서 제외
-  // (런타임에 변경되지 않는 모듈 레벨 상수)
+  // CATEGORY_STYLES는 'as const'로 정의된 모듈 레벨 상수 (런타임에 불변)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const markerIcons = useMemo(() => {
     if (!isLoaded) return {} as Record<string, google.maps.Symbol>
     const icons: Record<string, google.maps.Symbol> = {}

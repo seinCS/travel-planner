@@ -258,7 +258,6 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
                 selectedPlaceId={selectedPlaceId}
                 onPlaceSelect={setSelectedPlaceId}
                 onOpenDetails={setDetailPlaceId}
-                center={mapCenter || undefined}
                 destinationCenter={mapCenter || undefined}
                 fitBoundsKey={`mobile-${fitBoundsKey}`}
                 enablePanToOnSelect={true}
@@ -410,7 +409,7 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
               selectedPlaceId={selectedPlaceId}
               mapCenter={mapCenter || undefined}
               destinationCenter={mapCenter || undefined}
-              fitBoundsKey={`itinerary-${fitBoundsKey}-${selectedDayPlaceIds?.join(',') || 'all'}`}
+              fitBoundsKey={`itinerary-${fitBoundsKey}-${selectedDayPlaceIds ? `day-${selectedDayPlaceIds.length}` : 'all'}`}
               selectedDayPlaceIds={selectedDayPlaceIds}
               onPlaceSelect={setSelectedPlaceId}
               onOpenDetails={setDetailPlaceId}
