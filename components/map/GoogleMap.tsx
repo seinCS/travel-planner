@@ -4,13 +4,13 @@ import { useCallback, useState, useMemo, useEffect, useRef } from 'react'
 import { GoogleMap as GoogleMapComponent, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api'
 import { CATEGORY_STYLES } from '@/lib/constants'
 
-// 지도 설정 상수 (불변 객체로 정의)
-const MAP_CONFIG = Object.freeze({
+// 지도 설정 상수 (as const로 타입 안전성 확보)
+const MAP_CONFIG = {
   DEFAULT_ZOOM_NO_PLACES: 11,
   MIN_ZOOM: 10,
   MAX_ZOOM: 16,
-  DEFAULT_CENTER: Object.freeze({ lat: 37.5665, lng: 126.9780 }),
-})
+  DEFAULT_CENTER: { lat: 37.5665, lng: 126.9780 },
+} as const
 
 // 지도에 표시하기 위한 최소 장소 정보
 interface MapPlace {
@@ -40,7 +40,14 @@ interface GoogleMapProps {
 
 /**
  * 히든 핀을 포함한 bounds 계산
- * @returns bounds 객체와 단일 점 여부
+ *
+ * 실제 장소 마커들과 destination 히든 핀(표시되지 않음)을 포함하여
+ * 지도의 적절한 bounds를 계산합니다. 히든 핀은 지도 중심을 destination으로
+ * 유지하면서 장소들이 화면에 모두 보이도록 하는 역할을 합니다.
+ *
+ * @param places - 지도에 표시할 장소 배열
+ * @param destinationCenter - 히든 핀으로 사용할 destination 좌표 (선택)
+ * @returns bounds 객체와 단일 점 여부 (isSinglePoint가 true면 fitBounds 대신 setCenter 사용 권장)
  */
 const calculateBoundsWithHiddenPin = (
   places: MapPlace[],
@@ -154,9 +161,15 @@ export function GoogleMap({
     if (fitBoundsKey === undefined) return
 
     // 이전 리스너 정리 (메모리 누수 방지)
+    // try-catch-finally로 cleanup 실패 시에도 ref를 null로 설정
     if (fitBoundsCleanupRef.current) {
-      fitBoundsCleanupRef.current()
-      fitBoundsCleanupRef.current = null
+      try {
+        fitBoundsCleanupRef.current()
+      } catch (error) {
+        console.warn('[GoogleMap] Cleanup error:', error)
+      } finally {
+        fitBoundsCleanupRef.current = null
+      }
     }
 
     // 장소가 없고 destinationCenter가 있는 경우
@@ -182,13 +195,20 @@ export function GoogleMap({
     // cleanup: 컴포넌트 unmount 또는 의존성 변경 시 리스너 정리
     return () => {
       if (fitBoundsCleanupRef.current) {
-        fitBoundsCleanupRef.current()
-        fitBoundsCleanupRef.current = null
+        try {
+          fitBoundsCleanupRef.current()
+        } catch (error) {
+          console.warn('[GoogleMap] Cleanup error on unmount:', error)
+        } finally {
+          fitBoundsCleanupRef.current = null
+        }
       }
     }
   }, [map, fitBoundsKey, places, destinationCenter])
 
   // places를 ref로 저장하여 useEffect 의존성에서 제거 (불필요한 panTo 방지)
+  // 이 패턴은 selectedPlaceId 변경 시에만 panTo를 실행하고,
+  // places 배열이 변경되어도 panTo가 재실행되지 않도록 합니다.
   const placesRef = useRef<MapPlace[]>(places)
   placesRef.current = places
 
@@ -228,8 +248,9 @@ export function GoogleMap({
   const isUsingDefaultCenter = !center && !destinationCenter && places.length === 0
 
   // 마커 아이콘 캐싱 - isLoaded가 false면 빈 객체 반환
-  // CATEGORY_STYLES는 'as const'로 정의된 모듈 레벨 상수 (런타임에 불변)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+  // CATEGORY_STYLES는 lib/constants.ts에서 'as const'로 정의된 모듈 레벨 상수로,
+  // 런타임에 변경되지 않으므로 useMemo 의존성에 포함하지 않아도 안전합니다.
+  // isLoaded만 의존성으로 두어 Google Maps API 로드 완료 시에만 아이콘을 생성합니다.
   const markerIcons = useMemo(() => {
     if (!isLoaded) return {} as Record<string, google.maps.Symbol>
     const icons: Record<string, google.maps.Symbol> = {}

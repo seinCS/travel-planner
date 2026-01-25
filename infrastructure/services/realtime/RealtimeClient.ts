@@ -135,8 +135,14 @@ export class ProjectRealtimeClient {
           this.isSubscribed = true
 
           // Track presence if user info is set
+          // 에러 발생 시에도 구독은 성공으로 처리 (presence 실패가 구독을 막지 않도록)
           if (this.currentUser) {
-            await this.trackPresenceInternal()
+            try {
+              await this.trackPresenceInternal()
+            } catch (error) {
+              console.error('[RealtimeClient] Error tracking presence:', error)
+              // Don't reject - presence tracking failure shouldn't block subscription
+            }
           }
           resolve()
         } else if (status === 'CHANNEL_ERROR') {
