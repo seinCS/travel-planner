@@ -132,7 +132,7 @@ export function ImageList({
   ).length
 
   return (
-    <div className="space-y-3 h-full flex flex-col">
+    <div className="space-y-3 h-full flex flex-col" data-testid="image-list">
       {/* Header with title */}
       <div className="flex items-center justify-between flex-shrink-0">
         <h3 className="text-sm font-medium">업로드된 이미지 ({images.length}장)</h3>

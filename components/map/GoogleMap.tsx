@@ -120,6 +120,7 @@ export function GoogleMap({ places, selectedPlaceId, onPlaceSelect, onOpenDetail
   }
 
   return (
+    <div data-testid="google-map" className="w-full h-full">
     <GoogleMapComponent
       mapContainerStyle={mapContainerStyle}
       center={mapCenter}
@@ -170,5 +171,6 @@ export function GoogleMap({ places, selectedPlaceId, onPlaceSelect, onOpenDetail
         </InfoWindow>
       )}
     </GoogleMapComponent>
+    </div>
   )
 }

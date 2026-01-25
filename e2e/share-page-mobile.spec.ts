@@ -178,10 +178,9 @@ test.describe('공유 페이지 모바일 UI - 탭 전환 테스트', () => {
 
     // 목록 탭 클릭
     await listTab.click()
-    await page.waitForTimeout(300) // 애니메이션 대기
 
     // 목록 탭이 활성화됨
-    await expect(listTab).toHaveClass(/bg-blue-50/)
+    await expect(listTab).toHaveClass(/bg-blue-50/, { timeout: 3000 })
 
     // 장소 목록이 표시됨 (모바일/데스크톱 두 개가 있으므로 first() 사용)
     const placeList = page.getByTestId('place-list').first()
@@ -189,7 +188,6 @@ test.describe('공유 페이지 모바일 UI - 탭 전환 테스트', () => {
 
     // 지도 탭 클릭
     await mapTab.click()
-    await page.waitForTimeout(300)
 
     // 지도 탭이 다시 활성화됨
     await expect(mapTab).toHaveClass(/bg-blue-50/)
@@ -202,7 +200,7 @@ test.describe('공유 페이지 모바일 UI - 탭 전환 테스트', () => {
 
     // 목록 탭으로 전환
     await page.getByRole('button', { name: /목록/ }).click()
-    await page.waitForTimeout(300)
+    await page.waitForLoadState('domcontentloaded')
 
     // 모든 장소가 표시되어야 함
     for (const place of MOCK_SHARE_DATA.places) {
@@ -242,7 +240,7 @@ test.describe('공유 페이지 모바일 UI - 상세 패널 테스트', () => {
 
     // 목록 탭으로 전환
     await page.getByRole('button', { name: /목록/ }).click()
-    await page.waitForTimeout(300)
+    await page.waitForLoadState('domcontentloaded')
 
     // 첫 번째 장소의 상세 버튼 클릭
     const detailBtn = page.getByTestId('place-detail-btn').first()
@@ -313,7 +311,7 @@ test.describe('공유 페이지 모바일 UI - 복사 기능 테스트', () => {
 
     // 데스크톱에서 표시
     await page.setViewportSize(VIEWPORTS.desktop)
-    await page.waitForTimeout(300)
+    await page.waitForLoadState('domcontentloaded')
 
     await expect(shareBadge).toBeVisible()
   })
@@ -331,7 +329,7 @@ test.describe('공유 페이지 모바일 UI - 카테고리 필터 테스트', (
 
     // 목록 탭으로 전환
     await page.getByRole('button', { name: /목록/ }).click()
-    await page.waitForTimeout(300)
+    await page.waitForLoadState('domcontentloaded')
 
     // 전체 버튼 확인
     const allButton = page.getByRole('button', { name: /전체/ })
@@ -349,7 +347,7 @@ test.describe('공유 페이지 모바일 UI - 카테고리 필터 테스트', (
 
     // 목록 탭으로 전환
     await page.getByRole('button', { name: /목록/ }).click()
-    await page.waitForTimeout(300)
+    await page.waitForLoadState('domcontentloaded')
 
     // 전체 버튼의 크기 확인
     const allButton = page.getByRole('button', { name: /전체/ })

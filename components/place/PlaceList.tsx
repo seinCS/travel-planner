@@ -47,7 +47,7 @@ export function PlaceList({
   const categories = useMemo(() => Object.entries(CATEGORY_STYLES), [])
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col" data-testid="place-list">
       {/* 카테고리 필터 */}
       <div className="flex flex-wrap gap-2 pb-4 flex-shrink-0">
         <Button

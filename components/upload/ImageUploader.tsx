@@ -192,6 +192,7 @@ export function ImageUploader({ projectId, onUploadComplete, disabled }: ImageUp
         ${isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'}
         ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-gray-400'}
       `}
+      data-testid="image-upload-area"
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}

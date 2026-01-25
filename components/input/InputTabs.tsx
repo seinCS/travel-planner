@@ -48,7 +48,7 @@ export function InputTabs({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" data-testid="input-tabs">
       {/* 탭 헤더 - Mobile: icons only with tooltips, Desktop: full labels */}
       <TooltipProvider>
         <div className="flex gap-1 border-b">
@@ -59,6 +59,7 @@ export function InputTabs({
                   variant="ghost"
                   size="sm"
                   onClick={() => setActiveTab(tab.id)}
+                  data-testid={`input-tab-${tab.id}`}
                   className={`
                     rounded-none border-b-2 px-3 py-2 min-h-[44px] min-w-[44px]
                     ${activeTab === tab.id

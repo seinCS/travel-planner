@@ -50,7 +50,7 @@ export function TextInputForm({ projectId, onSubmitComplete, disabled }: TextInp
   }, [projectId, text, isValid, submitting, onSubmitComplete])
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" data-testid="text-input-form">
       <div className="space-y-2">
         <Label htmlFor="text-input">텍스트 입력</Label>
         <textarea
