@@ -26,6 +26,10 @@ interface ItineraryLayoutProps {
   places: Place[]
   selectedPlaceId: string | null
   mapCenter?: { lat: number; lng: number }
+  /** destination 좌표 (히든 핀용) */
+  destinationCenter?: { lat: number; lng: number }
+  /** fitBounds 트리거 키 */
+  fitBoundsKey?: string | number
   selectedDayPlaceIds: string[] | null
   onPlaceSelect: (placeId: string | null) => void
   onOpenDetails: (placeId: string) => void
@@ -37,14 +41,17 @@ export function ItineraryLayout({
   places,
   selectedPlaceId,
   mapCenter,
+  destinationCenter,
+  fitBoundsKey,
   selectedDayPlaceIds,
   onPlaceSelect,
   onOpenDetails,
   onDaySelect,
 }: ItineraryLayoutProps) {
   // 선택된 Day의 장소만 필터링
+  // Day 미선택 시: 모든 장소 표시 (요구사항 2.4)
   const mapPlaces = selectedDayPlaceIds === null
-    ? []  // 일정 탭에서는 Day 선택 전까지 빈 지도
+    ? places  // Day 미선택 시 모든 장소 표시
     : places.filter((p) => selectedDayPlaceIds.includes(p.id))
 
   return (
@@ -58,6 +65,9 @@ export function ItineraryLayout({
             onPlaceSelect={onPlaceSelect}
             onOpenDetails={onOpenDetails}
             center={mapCenter}
+            destinationCenter={destinationCenter}
+            fitBoundsKey={fitBoundsKey}
+            enablePanToOnSelect={true}
           />
         </div>
 
@@ -83,6 +93,9 @@ export function ItineraryLayout({
             onPlaceSelect={onPlaceSelect}
             onOpenDetails={onOpenDetails}
             center={mapCenter}
+            destinationCenter={destinationCenter}
+            fitBoundsKey={fitBoundsKey}
+            enablePanToOnSelect={true}
           />
         </div>
 

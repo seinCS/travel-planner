@@ -117,6 +117,9 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
   // Itinerary day filter state - itinerary 탭 전용 상태
   const [selectedDayPlaceIds, setSelectedDayPlaceIds] = useState<string[] | null>(null)
 
+  // fitBounds 트리거 키 - 탭 전환, Day 선택 시 증가
+  const [fitBoundsKey, setFitBoundsKey] = useState(0)
+
   // Handle day selection from itinerary
   const handleDaySelect = (dayNumber: number | null, placeIds: string[]) => {
     if (dayNumber === null) {
@@ -124,11 +127,15 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
     } else {
       setSelectedDayPlaceIds(placeIds)
     }
+    // Day 선택 시 fitBounds 재실행 트리거
+    setFitBoundsKey(prev => prev + 1)
   }
 
   // Handle main tab change - 탭 전환 시 지도 필터 상태 초기화
   const handleMainTabChange = (tab: MainTab) => {
     setMainTab(tab)
+    // 탭 전환 시 fitBounds 재실행 트리거
+    setFitBoundsKey(prev => prev + 1)
     // 장소 탭으로 전환 시 Day 필터 해제
     if (tab === 'places') {
       setSelectedDayPlaceIds(null)
@@ -252,6 +259,9 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
                 onPlaceSelect={setSelectedPlaceId}
                 onOpenDetails={setDetailPlaceId}
                 center={mapCenter || undefined}
+                destinationCenter={mapCenter || undefined}
+                fitBoundsKey={`mobile-${fitBoundsKey}`}
+                enablePanToOnSelect={true}
               />
             </div>
           )}
@@ -368,6 +378,8 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
               selectedPlaceId={selectedPlaceId}
               categoryFilter={categoryFilter}
               mapCenter={mapCenter || undefined}
+              destinationCenter={mapCenter || undefined}
+              fitBoundsKey={`places-${fitBoundsKey}`}
               sidebarTab={sidebarTab}
               processing={processing}
               processingText={processingText}
@@ -397,6 +409,8 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
               places={places}
               selectedPlaceId={selectedPlaceId}
               mapCenter={mapCenter || undefined}
+              destinationCenter={mapCenter || undefined}
+              fitBoundsKey={`itinerary-${fitBoundsKey}-${selectedDayPlaceIds?.join(',') || 'all'}`}
               selectedDayPlaceIds={selectedDayPlaceIds}
               onPlaceSelect={setSelectedPlaceId}
               onOpenDetails={setDetailPlaceId}

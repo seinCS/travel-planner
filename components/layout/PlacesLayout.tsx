@@ -32,6 +32,10 @@ interface PlacesLayoutProps {
   selectedPlaceId: string | null
   categoryFilter: string | null
   mapCenter?: { lat: number; lng: number }
+  /** destination 좌표 (히든 핀용) */
+  destinationCenter?: { lat: number; lng: number }
+  /** fitBounds 트리거 키 */
+  fitBoundsKey?: string | number
   sidebarTab: 'list' | 'input'
   processing: boolean
   processingText: boolean
@@ -67,6 +71,8 @@ export function PlacesLayout({
   selectedPlaceId,
   categoryFilter,
   mapCenter,
+  destinationCenter,
+  fitBoundsKey,
   sidebarTab,
   processing,
   processingText,
@@ -100,6 +106,9 @@ export function PlacesLayout({
             onPlaceSelect={onPlaceSelect}
             onOpenDetails={onOpenDetails}
             center={mapCenter}
+            destinationCenter={destinationCenter}
+            fitBoundsKey={fitBoundsKey}
+            enablePanToOnSelect={true}
           />
         </div>
 
@@ -193,6 +202,9 @@ export function PlacesLayout({
             onPlaceSelect={onPlaceSelect}
             onOpenDetails={onOpenDetails}
             center={mapCenter}
+            destinationCenter={destinationCenter}
+            fitBoundsKey={fitBoundsKey}
+            enablePanToOnSelect={true}
           />
         </div>
 
