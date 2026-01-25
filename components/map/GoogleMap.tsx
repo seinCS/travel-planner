@@ -37,8 +37,17 @@ const defaultCenter = {
 export function GoogleMap({ places, selectedPlaceId, onPlaceSelect, onOpenDetails, center }: GoogleMapProps) {
   const [map, setMap] = useState<google.maps.Map | null>(null)
 
+  // Google Maps API 키 검증
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+  if (!apiKey && typeof window !== 'undefined') {
+    console.error(
+      '[GoogleMap] NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is not defined. ' +
+      'Please set this environment variable to enable Google Maps.'
+    )
+  }
+
   const { isLoaded, loadError } = useJsApiLoader({
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
+    googleMapsApiKey: apiKey || '',
   })
 
   const onLoad = useCallback((map: google.maps.Map) => {
@@ -65,6 +74,8 @@ export function GoogleMap({ places, selectedPlaceId, onPlaceSelect, onOpenDetail
   )
 
   // 마커 아이콘 캐싱 - isLoaded가 false면 빈 객체 반환
+  // 의존성 배열: CATEGORY_STYLES는 lib/constants.ts에서 정의된 불변 상수이므로 의존성에서 제외
+  // (런타임에 변경되지 않는 모듈 레벨 상수)
   const markerIcons = useMemo(() => {
     if (!isLoaded) return {} as Record<string, google.maps.Symbol>
     const icons: Record<string, google.maps.Symbol> = {}

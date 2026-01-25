@@ -234,9 +234,9 @@ export function ImageList({
         </div>
       )}
 
-      {/* Image Grid */}
+      {/* Image Grid - 반응형 그리드 (모바일 2열 → 태블릿 3열 → 데스크톱 5열) */}
       <div
-        className={`flex-1 overflow-y-auto ${vertical ? 'space-y-2' : 'grid grid-cols-5 gap-2'}`}
+        className={`flex-1 overflow-y-auto ${vertical ? 'space-y-2' : 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2'}`}
       >
         {filteredImages.map((image) => {
           const statusStyle = STATUS_STYLES[image.status as keyof typeof STATUS_STYLES] || STATUS_STYLES.pending

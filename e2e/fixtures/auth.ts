@@ -1,4 +1,15 @@
 import { test as base, Page, BrowserContext, Browser } from '@playwright/test'
+import { z } from 'zod'
+
+// ============================================
+// 테스트 환경 설정
+// ============================================
+
+/** 세션 만료 시간 (기본: 7일) - 환경변수로 설정 가능 */
+const SESSION_EXPIRY_MS = parseInt(
+  process.env.E2E_SESSION_EXPIRY_MS || String(7 * 24 * 60 * 60 * 1000),
+  10
+)
 
 // ============================================
 // TypeScript 인터페이스 정의
@@ -164,28 +175,62 @@ async function mockAuthSession(page: Page): Promise<void> {
           email: TEST_USER.email,
           image: TEST_USER.image,
         },
-        expires: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        expires: new Date(Date.now() + SESSION_EXPIRY_MS).toISOString(),
       }),
     })
   })
 }
 
-// API 모킹 함수들
-async function mockProjectsAPI(page: Page, projects: TestProject[] = [TEST_PROJECT]): Promise<void> {
-  await page.route('**/api/projects', async (route) => {
-    const method = route.request().method()
+// ============================================
+// Zod 스키마 정의 (POST 요청 타입 검증)
+// ============================================
 
-    if (method === 'GET') {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify(projects),
-      })
-    } else if (method === 'POST') {
-      const body = route.request().postDataJSON()
-      const newProject = {
+const CreateProjectSchema = z.object({
+  name: z.string().min(1),
+  destination: z.string().min(1),
+  country: z.string().optional(),
+})
+
+const ShareToggleSchema = z.object({
+  enabled: z.boolean(),
+})
+
+// ============================================
+// API 모킹 함수들 (GET/POST 분리)
+// ============================================
+
+/** GET /api/projects 모킹 */
+async function mockProjectsGET(page: Page, projects: TestProject[] = [TEST_PROJECT]): Promise<void> {
+  await page.route('**/api/projects', async (route) => {
+    if (route.request().method() !== 'GET') {
+      await route.continue()
+      return
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(projects),
+    })
+  })
+}
+
+/** POST /api/projects 모킹 (Zod 스키마 검증 포함) */
+async function mockProjectsPOST(page: Page): Promise<void> {
+  await page.route('**/api/projects', async (route) => {
+    if (route.request().method() !== 'POST') {
+      await route.continue()
+      return
+    }
+
+    try {
+      const rawBody = route.request().postDataJSON()
+      const body = CreateProjectSchema.parse(rawBody)
+
+      const newProject: TestProject = {
         id: `project-${Date.now()}`,
-        ...body,
+        name: body.name,
+        destination: body.destination,
+        country: body.country || '',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         _count: { places: 0, images: 0 },
@@ -195,10 +240,21 @@ async function mockProjectsAPI(page: Page, projects: TestProject[] = [TEST_PROJE
         contentType: 'application/json',
         body: JSON.stringify(newProject),
       })
-    } else {
-      await route.continue()
+    } catch (error) {
+      console.error('E2E: Invalid project creation request:', error)
+      await route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: 'Invalid request body' }),
+      })
     }
   })
+}
+
+/** 프로젝트 API 모킹 (GET + POST) */
+async function mockProjectsAPI(page: Page, projects: TestProject[] = [TEST_PROJECT]): Promise<void> {
+  await mockProjectsGET(page, projects)
+  await mockProjectsPOST(page)
 }
 
 async function mockProjectDetailAPI(page: Page): Promise<void> {
@@ -232,16 +288,26 @@ async function mockProjectDetailAPI(page: Page): Promise<void> {
         }),
       })
     } else if (method === 'POST') {
-      const body = route.request().postDataJSON()
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          shareEnabled: body.enabled,
-          shareToken: body.enabled ? TEST_SHARE_TOKEN : null,
-          shareUrl: body.enabled ? `http://localhost:3000/s/${TEST_SHARE_TOKEN}` : null,
-        }),
-      })
+      try {
+        const rawBody = route.request().postDataJSON()
+        const body = ShareToggleSchema.parse(rawBody)
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            shareEnabled: body.enabled,
+            shareToken: body.enabled ? TEST_SHARE_TOKEN : null,
+            shareUrl: body.enabled ? `http://localhost:3000/s/${TEST_SHARE_TOKEN}` : null,
+          }),
+        })
+      } catch (error) {
+        console.error('E2E: Invalid share toggle request:', error)
+        await route.fulfill({
+          status: 400,
+          contentType: 'application/json',
+          body: JSON.stringify({ error: 'Invalid request body' }),
+        })
+      }
     } else {
       await route.continue()
     }

@@ -12,6 +12,13 @@ interface Project {
   country: string | null
   createdAt: string
   updatedAt: string
+  role: 'owner' | 'member'
+  isOwner: boolean
+  user: {
+    id: string
+    name: string | null
+    image: string | null
+  }
   _count: {
     places: number
     images: number
@@ -83,6 +90,25 @@ export default function ProjectsPage() {
     }
   }
 
+  const handleLeaveProject = async (id: string) => {
+    try {
+      const res = await fetch(`/api/projects/${id}/members/leave`, {
+        method: 'POST',
+      })
+
+      if (res.ok) {
+        toast.success('프로젝트에서 나갔습니다.')
+        setProjects(projects.filter((p) => p.id !== id))
+      } else {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to leave project')
+      }
+    } catch (error) {
+      console.error('Failed to leave project:', error)
+      toast.error('프로젝트 나가기에 실패했습니다.')
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -125,7 +151,11 @@ export default function ProjectsPage() {
               placesCount={project._count.places}
               imagesCount={project._count.images}
               updatedAt={project.updatedAt}
-              onDelete={handleDeleteProject}
+              role={project.role}
+              ownerName={project.user?.name}
+              ownerImage={project.user?.image}
+              onDelete={project.isOwner ? handleDeleteProject : undefined}
+              onLeave={!project.isOwner ? handleLeaveProject : undefined}
             />
           ))}
         </div>

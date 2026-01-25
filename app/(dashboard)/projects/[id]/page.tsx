@@ -439,6 +439,7 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
             </SheetHeader>
             <div className="flex-1 min-h-0 overflow-y-auto pb-safe">
               <PlaceDetailsPanel
+                key={detailPlaceId}
                 placeId={detailPlaceId}
                 onClose={() => setDetailPlaceId(null)}
               />
@@ -450,6 +451,7 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
       {detailPlaceId && isMobile === false && (
         <div className="fixed right-0 top-16 bottom-0 w-96 bg-white shadow-lg border-l z-50 overflow-y-auto">
           <PlaceDetailsPanel
+            key={detailPlaceId}
             placeId={detailPlaceId}
             onClose={() => setDetailPlaceId(null)}
           />

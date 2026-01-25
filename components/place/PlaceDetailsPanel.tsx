@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { CATEGORY_STYLES } from '@/lib/constants'
 import { getPhotoUrl } from '@/lib/google-maps'
@@ -15,10 +15,16 @@ interface PlaceDetailsPanelProps {
 export function PlaceDetailsPanel({ placeId, onClose, shareToken }: PlaceDetailsPanelProps) {
   const [showAllHours, setShowAllHours] = useState(false)
 
-  // 공유 hooks 사용
-  const { details, isLoading: loading } = usePlaceDetails(placeId, { shareToken })
+  // placeId 변경 시 내부 상태 초기화
+  useEffect(() => {
+    setShowAllHours(false)
+  }, [placeId])
 
-  if (loading) {
+  // 공유 hooks 사용
+  const { details, isLoading: loading, isValidating } = usePlaceDetails(placeId, { shareToken })
+
+  // 로딩 중이거나 새 데이터를 가져오는 중일 때 로딩 UI 표시
+  if (loading || (isValidating && !details)) {
     return (
       <div className="p-4 space-y-4">
         <div className="flex justify-between items-center">

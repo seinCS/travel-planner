@@ -484,6 +484,7 @@ export default function SharePage({ params }: SharePageProps) {
                 </SheetHeader>
                 <div className="flex-1 min-h-0 overflow-y-auto pb-safe">
                   <PlaceDetailsPanel
+                    key={detailPlaceId}
                     placeId={detailPlaceId}
                     onClose={() => setDetailPlaceId(null)}
                     shareToken={token}
@@ -497,6 +498,7 @@ export default function SharePage({ params }: SharePageProps) {
           {!isMobile && (
             <div className="fixed right-0 top-0 bottom-0 w-96 bg-white shadow-lg border-l z-50 overflow-y-auto">
               <PlaceDetailsPanel
+                key={detailPlaceId}
                 placeId={detailPlaceId}
                 onClose={() => setDetailPlaceId(null)}
                 shareToken={token}

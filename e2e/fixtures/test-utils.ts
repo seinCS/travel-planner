@@ -75,7 +75,11 @@ export async function navigateToInputSection(page: Page): Promise<void> {
   if (viewportType === 'mobile') {
     // 모바일: 바텀 네비게이션의 "추가" 버튼 클릭
     const addNavButton = page.locator('nav button').filter({ hasText: /추가/ })
-    if (await addNavButton.isVisible().catch(() => false)) {
+    const isVisible = await addNavButton.isVisible().catch((err) => {
+      console.warn('E2E: Mobile nav button visibility check failed:', err)
+      return false
+    })
+    if (isVisible) {
       await addNavButton.click()
       await expect(
         page.getByRole('button', { name: /이미지|📸/ })
@@ -84,7 +88,11 @@ export async function navigateToInputSection(page: Page): Promise<void> {
   } else if (viewportType === 'tablet') {
     // 태블릿: "입력" 탭 버튼 클릭
     const inputTabButton = page.getByRole('button', { name: /입력/ })
-    if (await inputTabButton.isVisible().catch(() => false)) {
+    const isVisible = await inputTabButton.isVisible().catch((err) => {
+      console.warn('E2E: Tablet input tab visibility check failed:', err)
+      return false
+    })
+    if (isVisible) {
       await inputTabButton.click()
       await expect(
         page.getByRole('button', { name: /이미지|📸/ })
@@ -105,7 +113,11 @@ export async function ensurePlaceListVisible(page: Page): Promise<void> {
     const listNavButton = page
       .locator('[data-testid="mobile-nav"] button, nav button')
       .filter({ hasText: /목록/ })
-    if (await listNavButton.isVisible().catch(() => false)) {
+    const isVisible = await listNavButton.isVisible().catch((err) => {
+      console.warn('E2E: Place list nav button visibility check failed:', err)
+      return false
+    })
+    if (isVisible) {
       await listNavButton.click()
       // 목록이 표시될 때까지 대기
       await page.waitForLoadState('domcontentloaded')
@@ -143,17 +155,24 @@ export async function waitForElementStable(
   await expect(locator).toBeVisible({ timeout: options.timeout ?? 5000 })
 
   // 짧은 안정화 대기 (애니메이션 완료)
+  // WebKit에서 getAnimations()가 제한적으로 지원될 수 있으므로 폴백 추가
   await locator.evaluate((el) => {
     return new Promise<void>((resolve) => {
-      if ('getAnimations' in el) {
-        const animations = (el as Element & { getAnimations(): Animation[] }).getAnimations()
-        if (animations.length === 0) {
-          resolve()
-          return
+      if ('getAnimations' in el && typeof (el as Element & { getAnimations?: () => Animation[] }).getAnimations === 'function') {
+        try {
+          const animations = (el as Element & { getAnimations(): Animation[] }).getAnimations()
+          if (animations.length === 0) {
+            resolve()
+            return
+          }
+          Promise.all(animations.map((a) => a.finished)).then(() => resolve()).catch(() => resolve())
+        } catch {
+          // WebKit 호환성 폴백: 100ms 대기
+          setTimeout(() => resolve(), 100)
         }
-        Promise.all(animations.map((a) => a.finished)).then(() => resolve())
       } else {
-        resolve()
+        // getAnimations 미지원 브라우저: 100ms 대기
+        setTimeout(() => resolve(), 100)
       }
     })
   })

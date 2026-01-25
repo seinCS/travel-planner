@@ -1,9 +1,18 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState, useCallback } from 'react'
 import { CATEGORY_STYLES } from '@/lib/constants'
 import { Place } from '@/types'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { AlertCircle } from 'lucide-react'
 
 interface PlaceListProps {
   places: Place[]
@@ -26,6 +35,26 @@ export function PlaceList({
   categoryFilter,
   onCategoryFilterChange,
 }: PlaceListProps) {
+  // 삭제 확인 다이얼로그 상태
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
+
+  // 삭제 확인 핸들러
+  const handleDeleteClick = useCallback((place: Place, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setDeleteTarget({ id: place.id, name: place.name })
+  }, [])
+
+  const confirmDelete = useCallback(() => {
+    if (deleteTarget) {
+      onPlaceDelete(deleteTarget.id)
+      setDeleteTarget(null)
+    }
+  }, [deleteTarget, onPlaceDelete])
+
+  const cancelDelete = useCallback(() => {
+    setDeleteTarget(null)
+  }, [])
+
   // 필터링된 장소 목록 메모이제이션 (rerender-memo 패턴)
   const filteredPlaces = useMemo(() =>
     categoryFilter
@@ -163,12 +192,7 @@ export function PlaceList({
                       size="sm"
                       variant="ghost"
                       className="text-red-500 hover:text-red-700 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 md:h-6 px-2"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (confirm('이 장소를 삭제하시겠습니까?')) {
-                          onPlaceDelete(place.id)
-                        }
-                      }}
+                      onClick={(e) => handleDeleteClick(place, e)}
                     >
                       삭제
                     </Button>
@@ -179,6 +203,31 @@ export function PlaceList({
           })
         )}
       </div>
+
+      {/* 삭제 확인 다이얼로그 */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && cancelDelete()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-red-500" />
+              장소 삭제 확인
+            </DialogTitle>
+            <DialogDescription>
+              <strong>{deleteTarget?.name}</strong>을(를) 삭제하시겠습니까?
+              <br />
+              <span className="text-red-500">이 작업은 되돌릴 수 없습니다.</span>
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={cancelDelete}>
+              취소
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete}>
+              삭제
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
