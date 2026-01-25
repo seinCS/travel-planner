@@ -60,9 +60,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const currentUserMember = projectWithMembers.members.find(
       (m) => m.userId === session.user.id
     )
-    const isMember = !!currentUserMember
 
-    if (!isOwner && !isMember) {
+    // 권한 확인: owner도 member도 아니면 거부
+    if (!isOwner && !currentUserMember) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

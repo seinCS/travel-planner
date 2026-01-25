@@ -45,7 +45,8 @@ export async function GET(
     }
 
     // 병렬 쿼리로 places와 failedImages 동시 조회 (async-parallel 패턴)
-    const [places, failedImages] = await Promise.all([
+    // Promise.allSettled 사용으로 개별 에러 처리
+    const [placesResult, failedImagesResult] = await Promise.allSettled([
       prisma.place.findMany({
         where: { projectId: id },
         include: {
@@ -61,6 +62,16 @@ export async function GET(
         where: { projectId: id, status: 'failed' },
       }),
     ])
+
+    // 결과 추출 (실패 시 빈 배열)
+    const places = placesResult.status === 'fulfilled' ? placesResult.value : []
+    const failedImages = failedImagesResult.status === 'fulfilled' ? failedImagesResult.value : []
+
+    // places 조회 실패는 에러로 처리 (핵심 데이터)
+    if (placesResult.status === 'rejected') {
+      console.error('Failed to fetch places:', placesResult.reason)
+      return NextResponse.json({ error: API_ERRORS.INTERNAL_ERROR }, { status: 500 })
+    }
 
     return NextResponse.json({ places, failedImages })
   } catch (error) {

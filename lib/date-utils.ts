@@ -9,10 +9,21 @@ import { format, addDays, differenceInDays } from 'date-fns'
 import { ko } from 'date-fns/locale'
 
 /**
+ * 문자열/Date를 안전하게 Date로 변환
+ */
+const toSafeDate = (date: Date | string): Date => {
+  const d = typeof date === 'string' ? new Date(date) : date
+  if (isNaN(d.getTime())) {
+    throw new Error(`Invalid date provided: ${date}`)
+  }
+  return d
+}
+
+/**
  * 한국어 로케일로 날짜 포맷팅
  */
 export const formatDate = (date: Date | string, pattern: string = 'yyyy-MM-dd'): string => {
-  const d = typeof date === 'string' ? new Date(date) : date
+  const d = toSafeDate(date)
   return format(d, pattern, { locale: ko })
 }
 
@@ -44,7 +55,7 @@ export const formatTime = (date: Date | string): string =>
  * 날짜에 일수 추가
  */
 export const addDaysToDate = (date: Date | string, days: number): Date => {
-  const d = typeof date === 'string' ? new Date(date) : date
+  const d = toSafeDate(date)
   return addDays(d, days)
 }
 
@@ -52,8 +63,8 @@ export const addDaysToDate = (date: Date | string, days: number): Date => {
  * 두 날짜 사이 일수 계산
  */
 export const getDaysDifference = (start: Date | string, end: Date | string): number => {
-  const startDate = typeof start === 'string' ? new Date(start) : start
-  const endDate = typeof end === 'string' ? new Date(end) : end
+  const startDate = toSafeDate(start)
+  const endDate = toSafeDate(end)
   return differenceInDays(endDate, startDate)
 }
 

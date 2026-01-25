@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
       },
     ],
     formats: ['image/avif', 'image/webp'],
-    minimumCacheTTL: 31536000, // 1년 캐싱
+    minimumCacheTTL: 2592000, // 30일 캐싱 (사용자 업로드 이미지 고려)
   },
 };
 
