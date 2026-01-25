@@ -19,10 +19,10 @@ export default function DashboardLayout({
   const { data: session } = useSession()
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b">
+    <div className="min-h-screen bg-background">
+      <header className="glass-header sticky top-0 z-40">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/projects" className="text-xl font-bold">
+          <Link href="/projects" className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
             여행 플래너
           </Link>
 
@@ -52,7 +52,9 @@ export default function DashboardLayout({
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        {children}
+        <div className="animate-in fade-in duration-500">
+          {children}
+        </div>
       </main>
     </div>
   )

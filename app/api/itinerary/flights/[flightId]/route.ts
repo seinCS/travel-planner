@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { z } from 'zod'
 import { authOptions } from '@/lib/auth'
+import { canEditProject } from '@/lib/auth-utils'
 import { prisma } from '@/lib/db'
+import { realtimeBroadcast } from '@/infrastructure/services/realtime'
 
 const updateFlightSchema = z.object({
   departureCity: z.string().min(1).optional(),
@@ -46,7 +48,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Flight not found' }, { status: 404 })
     }
 
-    if (flight.itinerary.project.userId !== session.user.id) {
+    if (!await canEditProject(flight.itinerary.projectId, session.user.id)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
@@ -91,7 +93,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Flight not found' }, { status: 404 })
     }
 
-    if (existingFlight.itinerary.project.userId !== session.user.id) {
+    if (!await canEditProject(existingFlight.itinerary.projectId, session.user.id)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
@@ -123,6 +125,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       where: { id: flightId },
       data: updateData,
     })
+
+    // Broadcast realtime event
+    realtimeBroadcast.flightUpdated(existingFlight.itinerary.projectId, flight, session.user.id)
 
     return NextResponse.json({ flight })
   } catch (error) {
@@ -170,13 +175,16 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Flight not found' }, { status: 404 })
     }
 
-    if (flight.itinerary.project.userId !== session.user.id) {
+    if (!await canEditProject(flight.itinerary.projectId, session.user.id)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
     await prisma.flight.delete({
       where: { id: flightId },
     })
+
+    // Broadcast realtime event
+    realtimeBroadcast.flightDeleted(flight.itinerary.projectId, flightId, session.user.id)
 
     return NextResponse.json({ success: true })
   } catch (error) {

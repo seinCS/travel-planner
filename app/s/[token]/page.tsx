@@ -15,6 +15,7 @@ import {
 import { MobileNavigation, ShareMobileTab } from '@/components/mobile/MobileNavigation'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { toast } from 'sonner'
+import { SharedItineraryView, SharedItinerary } from '@/components/share/SharedItineraryView'
 
 const GoogleMap = dynamic(
   () => import('@/components/map/GoogleMap').then((mod) => mod.GoogleMap),
@@ -64,6 +65,7 @@ interface SharedProject {
 interface SharePageData {
   project: SharedProject
   places: SharedPlace[]
+  itinerary: SharedItinerary | null
 }
 
 interface SharePageProps {
@@ -84,6 +86,7 @@ export default function SharePage({ params }: SharePageProps) {
   const [cloning, setCloning] = useState(false)
   const [detailPlaceId, setDetailPlaceId] = useState<string | null>(null)
   const [mobileTab, setMobileTab] = useState<ShareMobileTab>('map')
+  const [desktopSidebarTab, setDesktopSidebarTab] = useState<'list' | 'itinerary'>('list')
 
   useEffect(() => {
     const fetchData = async () => {
@@ -384,9 +387,20 @@ export default function SharePage({ params }: SharePageProps) {
                 {renderPlaceList()}
               </div>
             )}
+            {mobileTab === 'itinerary' && (
+              <div className="flex-1 bg-white rounded-lg shadow-sm border overflow-hidden">
+                <SharedItineraryView
+                  itinerary={data.itinerary}
+                  onPlaceClick={(placeId) => {
+                    setSelectedPlaceId(placeId)
+                    setDetailPlaceId(placeId)
+                  }}
+                />
+              </div>
+            )}
           </div>
 
-          {/* Tablet/Desktop (≥640px): 2컬럼 그리드 */}
+          {/* Tablet/Desktop (>=640px): 2컬럼 그리드 */}
           <div className="hidden sm:grid grid-cols-[1fr_320px] lg:grid-cols-[2fr_1fr] gap-4 lg:gap-6 h-full">
             {/* 지도 */}
             <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
@@ -397,13 +411,48 @@ export default function SharePage({ params }: SharePageProps) {
                 onOpenDetails={setDetailPlaceId}
               />
             </div>
-            {/* 목록 */}
-            <div className="bg-white rounded-lg shadow-sm border p-4 overflow-hidden flex flex-col">
-              <h2 className="font-semibold mb-3 flex-shrink-0">
-                장소 목록 ({filteredPlaces.length}개)
-              </h2>
-              {renderCategoryFilter()}
-              {renderPlaceList()}
+            {/* 사이드바 - 목록/일정 탭 전환 */}
+            <div className="bg-white rounded-lg shadow-sm border overflow-hidden flex flex-col">
+              {/* 탭 헤더 */}
+              <div className="flex border-b flex-shrink-0">
+                <button
+                  className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                    desktopSidebarTab === 'list'
+                      ? 'text-blue-600 border-b-2 border-blue-600'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                  onClick={() => setDesktopSidebarTab('list')}
+                >
+                  장소 ({places.length})
+                </button>
+                <button
+                  className={`flex-1 py-3 text-sm font-medium transition-colors ${
+                    desktopSidebarTab === 'itinerary'
+                      ? 'text-blue-600 border-b-2 border-blue-600'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                  onClick={() => setDesktopSidebarTab('itinerary')}
+                >
+                  일정 {data.itinerary ? `(${data.itinerary.days.length}일)` : ''}
+                </button>
+              </div>
+              {/* 탭 콘텐츠 */}
+              {desktopSidebarTab === 'list' ? (
+                <div className="flex-1 p-4 overflow-hidden flex flex-col">
+                  {renderCategoryFilter()}
+                  {renderPlaceList()}
+                </div>
+              ) : (
+                <div className="flex-1 overflow-hidden">
+                  <SharedItineraryView
+                    itinerary={data.itinerary}
+                    onPlaceClick={(placeId) => {
+                      setSelectedPlaceId(placeId)
+                      setDetailPlaceId(placeId)
+                    }}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>

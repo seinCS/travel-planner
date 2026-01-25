@@ -18,16 +18,16 @@ export function ResponsiveSidebar({
   pendingCount = 0,
 }: ResponsiveSidebarProps) {
   return (
-    <div className="bg-white rounded-lg border flex flex-col h-full overflow-hidden">
+    <div className="glass-card flex flex-col h-full overflow-hidden">
       {/* Tab Header */}
-      <div className="flex border-b flex-shrink-0">
+      <div className="flex border-b border-white/20 flex-shrink-0">
         <button
           className={cn(
-            "flex-1 px-4 py-3 text-sm font-medium transition-colors",
+            "flex-1 px-4 py-3 text-sm font-medium transition-all duration-200",
             "min-h-[44px]",
             activeTab === 'list'
-              ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50"
-              : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+              ? "text-blue-600 border-b-2 border-blue-500 bg-blue-50/50"
+              : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
           )}
           onClick={() => onTabChange('list')}
         >
@@ -35,11 +35,11 @@ export function ResponsiveSidebar({
         </button>
         <button
           className={cn(
-            "flex-1 px-4 py-3 text-sm font-medium transition-colors",
+            "flex-1 px-4 py-3 text-sm font-medium transition-all duration-200",
             "min-h-[44px]",
             activeTab === 'input'
-              ? "text-blue-600 border-b-2 border-blue-600 bg-blue-50"
-              : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+              ? "text-blue-600 border-b-2 border-blue-500 bg-blue-50/50"
+              : "text-gray-600 hover:text-gray-900 hover:bg-white/50"
           )}
           onClick={() => onTabChange('input')}
         >
@@ -48,7 +48,7 @@ export function ResponsiveSidebar({
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin">
         {children}
       </div>
     </div>

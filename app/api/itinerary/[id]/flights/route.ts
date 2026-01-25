@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { z } from 'zod'
 import { authOptions } from '@/lib/auth'
+import { canEditProject } from '@/lib/auth-utils'
 import { prisma } from '@/lib/db'
+import { realtimeBroadcast } from '@/infrastructure/services/realtime'
 
 const createFlightSchema = z.object({
   departureCity: z.string().min(1, 'Departure city is required'),
@@ -43,7 +45,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Itinerary not found' }, { status: 404 })
     }
 
-    if (itinerary.project.userId !== session.user.id) {
+    if (!await canEditProject(itinerary.projectId, session.user.id)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
@@ -89,7 +91,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Itinerary not found' }, { status: 404 })
     }
 
-    if (itinerary.project.userId !== session.user.id) {
+    if (!await canEditProject(itinerary.projectId, session.user.id)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
@@ -105,6 +107,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         note: validatedData.note || null,
       },
     })
+
+    // Broadcast realtime event
+    realtimeBroadcast.flightCreated(itinerary.projectId, flight, session.user.id)
 
     return NextResponse.json({ flight }, { status: 201 })
   } catch (error) {

@@ -132,7 +132,7 @@ test.describe('프로젝트 상세 페이지 - 장소 목록', () => {
 
     await ensurePlaceListVisible(projectDetailPage, viewport)
 
-    await expect(projectDetailPage.getByRole('button', { name: /전체/ })).toBeVisible()
+    await expect(projectDetailPage.getByRole('button', { name: /전체/ }).first()).toBeVisible()
   })
 })
 

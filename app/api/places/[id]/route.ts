@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { canEditProject } from '@/lib/auth-utils'
 import { prisma } from '@/lib/db'
 import { geocodePlaceWithFallback } from '@/lib/google-maps'
 import { z } from 'zod'
+import { realtimeBroadcast } from '@/infrastructure/services/realtime'
 
 const updatePlaceSchema = z.object({
   name: z.string().min(1).max(255).optional(),
@@ -32,14 +34,19 @@ export async function PUT(
 
     const { id } = await params
 
-    // 장소 조회 및 소유권 확인
+    // 장소 조회
     const place = await prisma.place.findFirst({
       where: { id },
       include: { project: true },
     })
 
-    if (!place || place.project.userId !== session.user.id) {
+    if (!place) {
       return NextResponse.json({ error: 'Place not found' }, { status: 404 })
+    }
+
+    // 멤버십 권한 확인
+    if (!await canEditProject(place.projectId, session.user.id)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
     const body = await request.json()
@@ -52,6 +59,9 @@ export async function PUT(
         status: place.status === 'auto' ? 'edited' : place.status,
       },
     })
+
+    // Broadcast realtime event
+    realtimeBroadcast.placeUpdated(place.projectId, updated, session.user.id)
 
     return NextResponse.json(updated)
   } catch (error) {
@@ -77,14 +87,19 @@ export async function PATCH(
 
     const { id } = await params
 
-    // 장소 조회 및 소유권 확인
+    // 장소 조회
     const place = await prisma.place.findFirst({
       where: { id },
       include: { project: true },
     })
 
-    if (!place || place.project.userId !== session.user.id) {
+    if (!place) {
       return NextResponse.json({ error: 'Place not found' }, { status: 404 })
+    }
+
+    // 멤버십 권한 확인
+    if (!await canEditProject(place.projectId, session.user.id)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
     const body = await request.json()
@@ -121,6 +136,9 @@ export async function PATCH(
       },
     })
 
+    // Broadcast realtime event
+    realtimeBroadcast.placeUpdated(place.projectId, updated, session.user.id)
+
     return NextResponse.json({
       place: updated,
       newAddress: geoResult.formattedAddress,
@@ -148,17 +166,25 @@ export async function DELETE(
 
     const { id } = await params
 
-    // 장소 조회 및 소유권 확인
+    // 장소 조회
     const place = await prisma.place.findFirst({
       where: { id },
       include: { project: true },
     })
 
-    if (!place || place.project.userId !== session.user.id) {
+    if (!place) {
       return NextResponse.json({ error: 'Place not found' }, { status: 404 })
     }
 
+    // 멤버십 권한 확인
+    if (!await canEditProject(place.projectId, session.user.id)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    }
+
     await prisma.place.delete({ where: { id } })
+
+    // Broadcast realtime event
+    realtimeBroadcast.placeDeleted(place.projectId, id, session.user.id)
 
     return NextResponse.json({ success: true })
   } catch (error) {

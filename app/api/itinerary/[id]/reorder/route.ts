@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { canEditProject } from '@/lib/auth-utils'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
 
@@ -29,14 +30,18 @@ export async function PUT(
 
     const { id: itineraryId } = await params
 
-    // Verify itinerary ownership through project
+    // Verify itinerary exists and user has edit permission
     const itinerary = await prisma.itinerary.findUnique({
       where: { id: itineraryId },
-      include: { project: true },
+      select: { id: true, projectId: true },
     })
 
-    if (!itinerary || itinerary.project.userId !== session.user.id) {
+    if (!itinerary) {
       return NextResponse.json({ error: 'Itinerary not found' }, { status: 404 })
+    }
+
+    if (!await canEditProject(itinerary.projectId, session.user.id)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
     const body = await request.json()

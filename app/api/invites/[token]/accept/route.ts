@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { realtimeBroadcast } from '@/infrastructure/services/realtime'
 
 interface RouteParams {
   params: Promise<{ token: string }>
@@ -98,6 +99,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         },
       },
     })
+
+    // Broadcast realtime event
+    realtimeBroadcast.memberJoined(project.id, member, session.user.id)
 
     return NextResponse.json({
       member,

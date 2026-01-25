@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { useRealtimeSync } from '@/hooks/realtime'
+import { PresenceIndicator } from '@/components/realtime'
 
 // Dynamic imports for heavy components
 const GoogleMap = dynamic(() => import('@/components/map/GoogleMap').then(mod => mod.GoogleMap), {
@@ -44,8 +46,10 @@ import { MobileNavigation, MobileTab } from '@/components/mobile/MobileNavigatio
 import { MainTabNavigation, MainTab } from '@/components/layout/MainTabNavigation'
 import { PlacesLayout } from '@/components/layout/PlacesLayout'
 import { ItineraryLayout } from '@/components/layout/ItineraryLayout'
+import { MembersPanel } from '@/components/members/MembersPanel'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useProjectDetail } from './_hooks/useProjectDetail'
+import { useSession } from 'next-auth/react'
 import type { Place, Image } from '@/types'
 
 interface PlaceWithPlaceImages extends Place {
@@ -60,6 +64,10 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
   const { id } = use(params)
   const router = useRouter()
   const isMobile = useIsMobile()
+  const { data: session } = useSession()
+
+  // Realtime collaboration sync (SWR cache invalidation)
+  const { isConnected } = useRealtimeSync(id)
 
   // Consolidated data and actions from hook
   const {
@@ -168,13 +176,26 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
     <div className="h-[calc(100vh-8rem)] pb-16 sm:pb-0 flex flex-col">
       {/* Header */}
       <div className="flex justify-between items-center mb-4 flex-shrink-0">
-        <div>
-          <h1 className="text-xl lg:text-2xl font-bold">{project?.name}</h1>
-          <p className="text-sm text-muted-foreground">
-            {project?.destination}{project?.country && `, ${project.country}`}
-          </p>
+        <div className="flex items-center gap-3">
+          <div>
+            <h1 className="text-xl lg:text-2xl font-bold">{project?.name}</h1>
+            <p className="text-sm text-muted-foreground">
+              {project?.destination}{project?.country && `, ${project.country}`}
+            </p>
+          </div>
+          {/* Connection status indicator */}
+          {isConnected && (
+            <div className="hidden sm:flex items-center gap-1 text-xs text-green-600">
+              <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              <span className="hidden lg:inline">실시간 동기화</span>
+            </div>
+          )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2 sm:gap-4">
+          {/* Presence indicator - show online collaborators */}
+          <div className="hidden sm:block">
+            <PresenceIndicator projectId={id} />
+          </div>
           {/* Desktop buttons - only show in places tab */}
           {mainTab === 'places' && (
             <div className="hidden lg:flex gap-2">
@@ -336,7 +357,7 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
 
         {/* Desktop & Tablet (≥640px): Main tab-based layout */}
         <div className="hidden sm:block h-full">
-          {mainTab === 'places' ? (
+          {mainTab === 'places' && (
             <PlacesLayout
               projectId={id}
               places={places}
@@ -368,7 +389,8 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
               onDeleteImages={deleteImages}
               isDeletingImages={deletingImages}
             />
-          ) : (
+          )}
+          {mainTab === 'itinerary' && (
             <ItineraryLayout
               projectId={id}
               places={places}
@@ -379,6 +401,15 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
               onOpenDetails={setDetailPlaceId}
               onDaySelect={handleDaySelect}
             />
+          )}
+          {mainTab === 'members' && project && session?.user?.id && (
+            <div className="h-full p-4 overflow-auto">
+              <MembersPanel
+                projectId={id}
+                projectOwnerId={project.userId}
+                currentUserId={session.user.id}
+              />
+            </div>
           )}
         </div>
       </div>

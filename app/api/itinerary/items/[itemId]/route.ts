@@ -8,8 +8,10 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { canEditProject } from '@/lib/auth-utils'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
+import { realtimeBroadcast } from '@/infrastructure/services/realtime'
 
 const updateItemSchema = z.object({
   order: z.number().int().min(0).optional(),
@@ -31,7 +33,7 @@ export async function PUT(
 
     const { itemId } = await params
 
-    // Verify item ownership through itinerary -> project
+    // Verify item exists and get project info
     const item = await prisma.itineraryItem.findUnique({
       where: { id: itemId },
       include: {
@@ -45,8 +47,14 @@ export async function PUT(
       },
     })
 
-    if (!item || item.day.itinerary.project.userId !== session.user.id) {
+    if (!item) {
       return NextResponse.json({ error: 'Item not found' }, { status: 404 })
+    }
+
+    // Check edit permission (owner or member)
+    const projectId = item.day.itinerary.projectId
+    if (!await canEditProject(projectId, session.user.id)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
     const body = await request.json()
@@ -67,6 +75,9 @@ export async function PUT(
       data: updateData,
       include: { place: true },
     })
+
+    // Broadcast realtime event
+    realtimeBroadcast.itemUpdated(item.day.itinerary.projectId, updatedItem, session.user.id)
 
     return NextResponse.json({ item: updatedItem })
   } catch (error) {
@@ -92,7 +103,7 @@ export async function DELETE(
 
     const { itemId } = await params
 
-    // Verify item ownership through itinerary -> project
+    // Verify item exists and get project info
     const item = await prisma.itineraryItem.findUnique({
       where: { id: itemId },
       include: {
@@ -106,13 +117,22 @@ export async function DELETE(
       },
     })
 
-    if (!item || item.day.itinerary.project.userId !== session.user.id) {
+    if (!item) {
       return NextResponse.json({ error: 'Item not found' }, { status: 404 })
+    }
+
+    // Check edit permission (owner or member)
+    const projectId = item.day.itinerary.projectId
+    if (!await canEditProject(projectId, session.user.id)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
     await prisma.itineraryItem.delete({
       where: { id: itemId },
     })
+
+    // Broadcast realtime event
+    realtimeBroadcast.itemDeleted(item.day.itinerary.projectId, itemId, session.user.id)
 
     return new NextResponse(null, { status: 204 })
   } catch (error) {

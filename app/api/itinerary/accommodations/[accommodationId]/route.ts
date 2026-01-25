@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { z } from 'zod'
 import { authOptions } from '@/lib/auth'
+import { canEditProject } from '@/lib/auth-utils'
 import { prisma } from '@/lib/db'
 import { createAccommodationItinerarySyncService } from '@/application/services/AccommodationItinerarySyncService'
+import { realtimeBroadcast } from '@/infrastructure/services/realtime'
 
 const updateAccommodationSchema = z.object({
   name: z.string().min(1).optional(),
@@ -47,7 +49,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Accommodation not found' }, { status: 404 })
     }
 
-    if (accommodation.itinerary.project.userId !== session.user.id) {
+    if (!await canEditProject(accommodation.itinerary.projectId, session.user.id)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
@@ -92,7 +94,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Accommodation not found' }, { status: 404 })
     }
 
-    if (existingAccommodation.itinerary.project.userId !== session.user.id) {
+    if (!await canEditProject(existingAccommodation.itinerary.projectId, session.user.id)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
@@ -138,6 +140,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         previousCheckOut
       )
     }
+
+    // Broadcast realtime event
+    realtimeBroadcast.accommodationUpdated(existingAccommodation.itinerary.projectId, accommodation, session.user.id)
 
     return NextResponse.json({ accommodation })
   } catch (error) {
@@ -185,13 +190,16 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Accommodation not found' }, { status: 404 })
     }
 
-    if (accommodation.itinerary.project.userId !== session.user.id) {
+    if (!await canEditProject(accommodation.itinerary.projectId, session.user.id)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
     await prisma.accommodation.delete({
       where: { id: accommodationId },
     })
+
+    // Broadcast realtime event
+    realtimeBroadcast.accommodationDeleted(accommodation.itinerary.projectId, accommodationId, session.user.id)
 
     return NextResponse.json({ success: true })
   } catch (error) {
