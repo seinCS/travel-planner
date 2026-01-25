@@ -281,9 +281,47 @@ async function mockGeocodeDestinationAPI(page: Page): Promise<void> {
   })
 }
 
+/** 일정 API 모킹 */
+async function mockItineraryAPI(page: Page): Promise<void> {
+  await page.route('**/api/projects/*/itinerary', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: 'itinerary-1',
+        projectId: TEST_PROJECT.id,
+        startDate: '2026-03-01',
+        endDate: '2026-03-03',
+        days: [
+          {
+            id: 'day-1',
+            dayNumber: 1,
+            date: '2026-03-01',
+            items: [
+              { id: 'item-1', placeId: 'place-1', orderIndex: 0, type: 'place' },
+            ],
+          },
+          {
+            id: 'day-2',
+            dayNumber: 2,
+            date: '2026-03-02',
+            items: [
+              { id: 'item-2', placeId: 'place-2', orderIndex: 0, type: 'place' },
+              { id: 'item-3', placeId: 'place-3', orderIndex: 1, type: 'place' },
+            ],
+          },
+        ],
+      }),
+    })
+  })
+}
+
 async function mockProjectDetailAPI(page: Page): Promise<void> {
   // Geocode API 모킹 추가 (지도 초기 중심점)
   await mockGeocodeDestinationAPI(page)
+
+  // 일정 API 모킹 추가
+  await mockItineraryAPI(page)
 
   await page.route('**/api/projects/*/places', async (route) => {
     await route.fulfill({

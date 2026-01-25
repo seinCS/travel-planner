@@ -1,8 +1,16 @@
 'use client'
 
-import { useCallback, useState, useMemo } from 'react'
+import { useCallback, useState, useMemo, useEffect, useRef } from 'react'
 import { GoogleMap as GoogleMapComponent, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api'
 import { CATEGORY_STYLES } from '@/lib/constants'
+
+// 지도 설정 상수 (as const로 타입 안전성 확보)
+const MAP_CONFIG = {
+  DEFAULT_ZOOM_NO_PLACES: 11,
+  MIN_ZOOM: 10,
+  MAX_ZOOM: 16,
+  DEFAULT_CENTER: { lat: 37.5665, lng: 126.9780 },
+} as const
 
 // 지도에 표시하기 위한 최소 장소 정보
 interface MapPlace {
@@ -22,6 +30,84 @@ interface GoogleMapProps {
   onPlaceSelect: (placeId: string | null) => void
   onOpenDetails?: (placeId: string) => void
   center?: { lat: number; lng: number }
+  /** 히든 핀으로 사용할 destination 좌표 (bounds 계산에만 사용) */
+  destinationCenter?: { lat: number; lng: number }
+  /** fitBounds 트리거 - 값이 변경되면 fitBounds 재실행 */
+  fitBoundsKey?: string | number
+  /** 장소 클릭 시 panTo 여부 (기본값: true) */
+  enablePanToOnSelect?: boolean
+}
+
+/**
+ * 히든 핀을 포함한 bounds 계산
+ *
+ * 실제 장소 마커들과 destination 히든 핀(표시되지 않음)을 포함하여
+ * 지도의 적절한 bounds를 계산합니다. 히든 핀은 지도 중심을 destination으로
+ * 유지하면서 장소들이 화면에 모두 보이도록 하는 역할을 합니다.
+ *
+ * @param places - 지도에 표시할 장소 배열
+ * @param destinationCenter - 히든 핀으로 사용할 destination 좌표 (선택)
+ * @returns bounds 객체와 단일 점 여부 (isSinglePoint가 true면 fitBounds 대신 setCenter 사용 권장)
+ */
+const calculateBoundsWithHiddenPin = (
+  places: MapPlace[],
+  destinationCenter?: { lat: number; lng: number }
+): { bounds: google.maps.LatLngBounds; isSinglePoint: boolean } => {
+  const bounds = new google.maps.LatLngBounds()
+  let pointCount = 0
+
+  // 1. 히든 핀 (destination) 추가
+  if (destinationCenter) {
+    bounds.extend(destinationCenter)
+    pointCount++
+  }
+
+  // 2. 실제 장소들 추가
+  places.forEach((place) => {
+    bounds.extend({ lat: place.latitude, lng: place.longitude })
+    pointCount++
+  })
+
+  // 단일 점 여부 반환 (fitBounds가 예상치 못한 줌을 설정할 수 있음)
+  return { bounds, isSinglePoint: pointCount <= 1 }
+}
+
+/**
+ * zoom 제한이 적용된 fitBounds
+ * @returns 리스너 정리 함수 (컴포넌트 unmount 시 호출 필요)
+ */
+const fitBoundsWithLimits = (
+  map: google.maps.Map,
+  bounds: google.maps.LatLngBounds,
+  isSinglePoint: boolean = false
+): (() => void) => {
+  // 단일 점인 경우 fitBounds 대신 setCenter + setZoom 사용
+  if (isSinglePoint) {
+    map.setCenter(bounds.getCenter())
+    map.setZoom(MAP_CONFIG.DEFAULT_ZOOM_NO_PLACES)
+    return () => {} // 정리할 리스너 없음
+  }
+
+  map.fitBounds(bounds)
+
+  // fitBounds 완료 후 zoom 보정
+  const listener = google.maps.event.addListenerOnce(map, 'idle', () => {
+    const zoom = map.getZoom()
+    if (zoom !== undefined) {
+      if (zoom > MAP_CONFIG.MAX_ZOOM) {
+        map.setZoom(MAP_CONFIG.MAX_ZOOM)
+      } else if (zoom < MAP_CONFIG.MIN_ZOOM) {
+        map.setZoom(MAP_CONFIG.MIN_ZOOM)
+      }
+    }
+  })
+
+  // 리스너 정리 함수 반환
+  return () => {
+    if (listener) {
+      google.maps.event.removeListener(listener)
+    }
+  }
 }
 
 const mapContainerStyle = {
@@ -29,54 +115,142 @@ const mapContainerStyle = {
   height: '100%',
 }
 
-export function GoogleMap({ places, selectedPlaceId, onPlaceSelect, onOpenDetails, center }: GoogleMapProps) {
+export function GoogleMap({
+  places,
+  selectedPlaceId,
+  onPlaceSelect,
+  onOpenDetails,
+  center,
+  destinationCenter,
+  fitBoundsKey,
+  enablePanToOnSelect = true,
+}: GoogleMapProps) {
   const [map, setMap] = useState<google.maps.Map | null>(null)
+  const prevSelectedPlaceIdRef = useRef<string | null>(null)
+  const fitBoundsCleanupRef = useRef<(() => void) | null>(null)
 
   // Google Maps API 키 검증
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-  if (!apiKey && typeof window !== 'undefined') {
-    console.error(
-      '[GoogleMap] NEXT_PUBLIC_GOOGLE_MAPS_API_KEY is not defined. ' +
-      'Please set this environment variable to enable Google Maps.'
-    )
-  }
 
   const { isLoaded, loadError } = useJsApiLoader({
     googleMapsApiKey: apiKey || '',
   })
 
+  // [Critical] API 키가 없으면 에러 UI 반환
+  if (!apiKey) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-gray-100">
+        <div className="text-center p-4">
+          <p className="text-red-500 font-medium">Google Maps API 키가 설정되지 않았습니다.</p>
+          <p className="text-gray-500 text-sm mt-1">
+            환경 변수 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY를 설정해주세요.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
   const onLoad = useCallback((map: google.maps.Map) => {
     setMap(map)
+    // fitBounds 로직은 useEffect로 이전 (fitBoundsKey 기반)
+  }, [])
 
-    // 모든 마커가 보이도록 bounds 조정
-    if (places.length > 0) {
-      const bounds = new google.maps.LatLngBounds()
-      places.forEach((place) => {
-        bounds.extend({ lat: place.latitude, lng: place.longitude })
-      })
-      map.fitBounds(bounds)
+  // fitBoundsKey 변경 시 fitBounds 실행
+  useEffect(() => {
+    if (!map) return
+    if (fitBoundsKey === undefined) return
+
+    // 이전 리스너 정리 (메모리 누수 방지)
+    // try-catch-finally로 cleanup 실패 시에도 ref를 null로 설정
+    if (fitBoundsCleanupRef.current) {
+      try {
+        fitBoundsCleanupRef.current()
+      } catch (error) {
+        console.warn('[GoogleMap] Cleanup error:', error)
+      } finally {
+        fitBoundsCleanupRef.current = null
+      }
     }
-  }, [places])
+
+    // 장소가 없고 destinationCenter가 있는 경우
+    if (places.length === 0 && destinationCenter) {
+      map.setCenter(destinationCenter)
+      map.setZoom(MAP_CONFIG.DEFAULT_ZOOM_NO_PLACES)
+      return
+    }
+
+    // 장소가 없고 destinationCenter도 없는 경우
+    if (places.length === 0 && !destinationCenter) {
+      map.setCenter(MAP_CONFIG.DEFAULT_CENTER)
+      map.setZoom(5)
+      return
+    }
+
+    // 장소가 있는 경우 - 히든 핀 포함 fitBounds
+    if (places.length > 0) {
+      const { bounds, isSinglePoint } = calculateBoundsWithHiddenPin(places, destinationCenter)
+      fitBoundsCleanupRef.current = fitBoundsWithLimits(map, bounds, isSinglePoint)
+    }
+
+    // cleanup: 컴포넌트 unmount 또는 의존성 변경 시 리스너 정리
+    return () => {
+      if (fitBoundsCleanupRef.current) {
+        try {
+          fitBoundsCleanupRef.current()
+        } catch (error) {
+          console.warn('[GoogleMap] Cleanup error on unmount:', error)
+        } finally {
+          fitBoundsCleanupRef.current = null
+        }
+      }
+    }
+  }, [map, fitBoundsKey, places, destinationCenter])
+
+  // places를 ref로 저장하여 useEffect 의존성에서 제거 (불필요한 panTo 방지)
+  // 이 패턴은 selectedPlaceId 변경 시에만 panTo를 실행하고,
+  // places 배열이 변경되어도 panTo가 재실행되지 않도록 합니다.
+  const placesRef = useRef<MapPlace[]>(places)
+  placesRef.current = places
+
+  // 장소 선택 시 panTo (enablePanToOnSelect가 true일 때만)
+  useEffect(() => {
+    if (!map) return
+    if (!enablePanToOnSelect) return
+
+    // 이전 선택과 같으면 스킵 (같은 장소 재클릭 방지)
+    if (selectedPlaceId === prevSelectedPlaceIdRef.current) return
+    prevSelectedPlaceIdRef.current = selectedPlaceId
+
+    if (!selectedPlaceId) return
+
+    // placesRef.current 사용하여 places 의존성 제거
+    const place = placesRef.current.find((p) => p.id === selectedPlaceId)
+    if (place) {
+      map.panTo({ lat: place.latitude, lng: place.longitude })
+      // zoom은 유지 (변경하지 않음)
+    }
+  }, [map, selectedPlaceId, enablePanToOnSelect])
 
   const selectedPlace = places.find((p) => p.id === selectedPlaceId)
 
   // 맵 중심점 메모이제이션 - hooks는 조건부 return 전에 호출해야 함 (Rules of Hooks)
-  // 우선순위: center prop > places[0] > 기본값 (대한민국 중심)
-  const DEFAULT_CENTER = { lat: 37.5665, lng: 126.9780 } // 서울
+  // 우선순위: center prop > destinationCenter > places[0] > 기본값 (대한민국 중심)
   const mapCenter = useMemo(() => {
     if (center) return center
+    if (destinationCenter) return destinationCenter
     if (places.length > 0) {
       return { lat: places[0].latitude, lng: places[0].longitude }
     }
-    return DEFAULT_CENTER
-  }, [center, places])
+    return MAP_CONFIG.DEFAULT_CENTER
+  }, [center, destinationCenter, places])
 
-  // center와 places 모두 없는 경우 (기본값 사용 중)
-  const isUsingDefaultCenter = !center && places.length === 0
+  // center, destinationCenter, places 모두 없는 경우 (기본값 사용 중)
+  const isUsingDefaultCenter = !center && !destinationCenter && places.length === 0
 
   // 마커 아이콘 캐싱 - isLoaded가 false면 빈 객체 반환
-  // 의존성 배열: CATEGORY_STYLES는 lib/constants.ts에서 정의된 불변 상수이므로 의존성에서 제외
-  // (런타임에 변경되지 않는 모듈 레벨 상수)
+  // CATEGORY_STYLES는 lib/constants.ts에서 'as const'로 정의된 모듈 레벨 상수로,
+  // 런타임에 변경되지 않으므로 useMemo 의존성에 포함하지 않아도 안전합니다.
+  // isLoaded만 의존성으로 두어 Google Maps API 로드 완료 시에만 아이콘을 생성합니다.
   const markerIcons = useMemo(() => {
     if (!isLoaded) return {} as Record<string, google.maps.Symbol>
     const icons: Record<string, google.maps.Symbol> = {}
