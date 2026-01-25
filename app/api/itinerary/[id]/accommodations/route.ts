@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { z } from 'zod'
 import { authOptions } from '@/lib/auth'
+import { canEditProject } from '@/lib/auth-utils'
 import { prisma } from '@/lib/db'
 import { createAccommodationItinerarySyncService } from '@/application/services/AccommodationItinerarySyncService'
+import { realtimeBroadcast } from '@/infrastructure/services/realtime'
 
 const createAccommodationSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -44,7 +46,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Itinerary not found' }, { status: 404 })
     }
 
-    if (itinerary.project.userId !== session.user.id) {
+    if (!await canEditProject(itinerary.projectId, session.user.id)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
@@ -90,7 +92,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Itinerary not found' }, { status: 404 })
     }
 
-    if (itinerary.project.userId !== session.user.id) {
+    if (!await canEditProject(itinerary.projectId, session.user.id)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
@@ -110,6 +112,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // 숙소 일정 아이템 자동 생성
     const syncService = createAccommodationItinerarySyncService(prisma)
     await syncService.createItemsForAccommodation(accommodation)
+
+    // Broadcast realtime event
+    realtimeBroadcast.accommodationCreated(itinerary.projectId, accommodation, session.user.id)
 
     return NextResponse.json({ accommodation }, { status: 201 })
   } catch (error) {

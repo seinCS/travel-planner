@@ -99,7 +99,7 @@ test.describe('공유 페이지 모바일 UI - 레이아웃 테스트', () => {
     await mockShareAPI(page)
   })
 
-  test('모바일에서 2탭 네비게이션 표시', async ({ page }) => {
+  test('모바일에서 3탭 네비게이션 표시', async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.iPhoneSE)
     await page.goto(`/s/${VALID_TOKEN}`)
     await page.waitForLoadState('networkidle')
@@ -108,15 +108,16 @@ test.describe('공유 페이지 모바일 UI - 레이아웃 테스트', () => {
     const mobileNav = page.getByTestId('mobile-nav')
     await expect(mobileNav).toBeVisible()
 
-    // 2탭만 표시 (지도, 목록)
+    // 3탭 표시 (지도, 목록, 일정) - Phase 7에서 일정 탭 추가됨
     await expect(page.getByRole('button', { name: /지도/ })).toBeVisible()
     await expect(page.getByRole('button', { name: /목록/ })).toBeVisible()
+    await expect(page.getByRole('button', { name: /일정/ })).toBeVisible()
 
     // '추가' 탭은 공유 페이지에서 표시되지 않아야 함
     await expect(page.getByRole('button', { name: /추가/ })).not.toBeVisible()
   })
 
-  test('iPhone 14 Pro에서 2탭 네비게이션 표시', async ({ page }) => {
+  test('iPhone 14 Pro에서 3탭 네비게이션 표시', async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.iPhone14Pro)
     await page.goto(`/s/${VALID_TOKEN}`)
     await page.waitForLoadState('networkidle')
@@ -124,9 +125,9 @@ test.describe('공유 페이지 모바일 UI - 레이아웃 테스트', () => {
     const mobileNav = page.getByTestId('mobile-nav')
     await expect(mobileNav).toBeVisible()
 
-    // 2탭만 표시
+    // 3탭 표시 (지도, 목록, 일정) - Phase 7에서 일정 탭 추가됨
     const tabs = mobileNav.getByRole('button')
-    await expect(tabs).toHaveCount(2)
+    await expect(tabs).toHaveCount(3)
   })
 
   test('태블릿에서 2컬럼 레이아웃', async ({ page }) => {

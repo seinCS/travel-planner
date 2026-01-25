@@ -6,7 +6,7 @@ import type { Place } from '@/types'
 const GoogleMap = dynamic(() => import('@/components/map/GoogleMap').then(mod => mod.GoogleMap), {
   ssr: false,
   loading: () => (
-    <div className="h-full w-full bg-gray-100 animate-pulse rounded-lg flex items-center justify-center">
+    <div className="h-full w-full bg-white/40 animate-pulse rounded-2xl flex items-center justify-center backdrop-blur-sm">
       <span className="text-muted-foreground">지도 로딩 중...</span>
     </div>
   ),
@@ -15,7 +15,7 @@ const GoogleMap = dynamic(() => import('@/components/map/GoogleMap').then(mod =>
 const ItineraryView = dynamic(() => import('@/components/itinerary/ItineraryView').then(mod => mod.ItineraryView), {
   ssr: false,
   loading: () => (
-    <div className="h-full flex items-center justify-center">
+    <div className="h-full flex items-center justify-center bg-white/40 backdrop-blur-sm rounded-2xl">
       <span className="text-muted-foreground">일정 로딩 중...</span>
     </div>
   ),
@@ -50,8 +50,8 @@ export function ItineraryLayout({
   return (
     <>
       {/* 데스크탑 (≥1024px): 2컬럼 */}
-      <div className="hidden lg:grid grid-cols-2 gap-4 h-full">
-        <div className="bg-white rounded-lg border overflow-hidden min-h-[400px]">
+      <div className="hidden lg:grid grid-cols-2 gap-5 h-full">
+        <div className="glass-card overflow-hidden min-h-[400px]">
           <GoogleMap
             places={mapPlaces}
             selectedPlaceId={selectedPlaceId}
@@ -61,7 +61,7 @@ export function ItineraryLayout({
           />
         </div>
 
-        <div className="bg-white rounded-lg border overflow-hidden h-full">
+        <div className="glass-card overflow-hidden h-full">
           <ItineraryView
             projectId={projectId}
             places={places}
@@ -75,8 +75,8 @@ export function ItineraryLayout({
       </div>
 
       {/* 태블릿 (640-1023px): 2컬럼 (작은 사이드바) */}
-      <div className="hidden sm:grid lg:hidden grid-cols-[1fr_320px] gap-4 h-full">
-        <div className="bg-white rounded-lg border overflow-hidden min-h-[400px]">
+      <div className="hidden sm:grid lg:hidden grid-cols-[1fr_320px] gap-5 h-full">
+        <div className="glass-card overflow-hidden min-h-[400px]">
           <GoogleMap
             places={mapPlaces}
             selectedPlaceId={selectedPlaceId}
@@ -86,7 +86,7 @@ export function ItineraryLayout({
           />
         </div>
 
-        <div className="bg-white rounded-lg border overflow-hidden h-full">
+        <div className="glass-card overflow-hidden h-full">
           <ItineraryView
             projectId={projectId}
             places={places}

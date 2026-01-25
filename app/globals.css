@@ -48,37 +48,58 @@
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
+  /* 2026 Trend: Soft gray background */
+  --background: oklch(0.975 0 0);
   --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
+  /* Glassmorphism card - semi-transparent white */
+  --card: oklch(1 0 0 / 85%);
   --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
+  --popover: oklch(1 0 0 / 90%);
   --popover-foreground: oklch(0.145 0 0);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
+  --secondary: oklch(0.97 0 0 / 80%);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.5 0 0);
+  --accent: oklch(0.97 0 0 / 80%);
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  /* Softer borders for glassmorphism */
+  --border: oklch(0.9 0 0 / 60%);
+  --input: oklch(0.95 0 0 / 80%);
   --ring: oklch(0.708 0 0);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
+  --sidebar: oklch(1 0 0 / 70%);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent: oklch(0.97 0 0 / 80%);
   --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-border: oklch(0.9 0 0 / 50%);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* 2026 Design System Variables */
+  --glass-blur: 16px;
+  --glass-saturate: 180%;
+  --shadow-elevation-low:
+    0 1px 2px oklch(0 0 0 / 3%),
+    0 2px 4px oklch(0 0 0 / 3%),
+    0 4px 8px oklch(0 0 0 / 3%);
+  --shadow-elevation-medium:
+    0 2px 4px oklch(0 0 0 / 4%),
+    0 4px 8px oklch(0 0 0 / 4%),
+    0 8px 16px oklch(0 0 0 / 4%),
+    0 16px 32px oklch(0 0 0 / 4%);
+  --shadow-elevation-high:
+    0 4px 8px oklch(0 0 0 / 4%),
+    0 8px 16px oklch(0 0 0 / 4%),
+    0 16px 32px oklch(0 0 0 / 4%),
+    0 32px 64px oklch(0 0 0 / 6%);
 }
 
 .dark {
@@ -121,5 +142,169 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* Subtle background pattern for depth */
+    background-image:
+      radial-gradient(circle at 20% 80%, oklch(0.95 0.01 250 / 30%) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, oklch(0.95 0.01 200 / 20%) 0%, transparent 50%);
+    background-attachment: fixed;
   }
+}
+
+/* ========================================
+   2026 Glassmorphism Design System
+   ======================================== */
+
+/* Glass Card - Primary container style */
+.glass-card {
+  background: oklch(1 0 0 / 75%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border: 1px solid oklch(1 0 0 / 30%);
+  border-radius: 16px;
+  box-shadow: var(--shadow-elevation-medium);
+}
+
+.glass-card-elevated {
+  background: oklch(1 0 0 / 80%);
+  backdrop-filter: blur(20px) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(20px) saturate(var(--glass-saturate));
+  border: 1px solid oklch(1 0 0 / 40%);
+  border-radius: 20px;
+  box-shadow: var(--shadow-elevation-high);
+}
+
+/* Glass Header - For navigation and headers */
+.glass-header {
+  background: oklch(1 0 0 / 70%);
+  backdrop-filter: blur(12px) saturate(150%);
+  -webkit-backdrop-filter: blur(12px) saturate(150%);
+  border-bottom: 1px solid oklch(0 0 0 / 5%);
+  box-shadow: 0 1px 3px oklch(0 0 0 / 5%);
+}
+
+/* Glass Sidebar - Translucent sidebar */
+.glass-sidebar {
+  background: oklch(1 0 0 / 65%);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border-right: 1px solid oklch(1 0 0 / 30%);
+}
+
+/* ========================================
+   Custom Scrollbar - 2026 Minimal Style
+   ======================================== */
+
+/* Webkit (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: oklch(0.7 0 0 / 30%);
+  border-radius: 3px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.5 0 0 / 50%);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: oklch(0.4 0 0 / 60%);
+}
+
+/* Hide scrollbar when not hovering (subtle UX) */
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+.scrollbar-thin:hover::-webkit-scrollbar-thumb {
+  background: oklch(0.7 0 0 / 30%);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.7 0 0 / 30%) transparent;
+}
+
+/* ========================================
+   Enhanced Component Styles
+   ======================================== */
+
+/* Smooth hover transitions */
+.hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-elevation-high);
+}
+
+/* Interactive card state */
+.interactive-card {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.interactive-card:hover {
+  background: oklch(1 0 0 / 85%);
+  border-color: oklch(0.8 0 0 / 50%);
+}
+
+.interactive-card:active {
+  transform: scale(0.98);
+}
+
+/* Focus ring enhancement */
+.focus-ring {
+  @apply outline-none ring-2 ring-ring/40 ring-offset-2 ring-offset-background;
+}
+
+/* Subtle inner shadow for depth */
+.inner-shadow {
+  box-shadow: inset 0 1px 2px oklch(0 0 0 / 5%);
+}
+
+/* Glass input field */
+.glass-input {
+  background: oklch(1 0 0 / 60%);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid oklch(0 0 0 / 8%);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.glass-input:focus {
+  background: oklch(1 0 0 / 80%);
+  border-color: oklch(0 0 0 / 15%);
+  box-shadow: 0 0 0 3px oklch(0.5 0 0 / 10%);
+}
+
+/* Glass button */
+.glass-button {
+  background: oklch(1 0 0 / 70%);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid oklch(1 0 0 / 40%);
+  border-radius: 12px;
+  box-shadow: var(--shadow-elevation-low);
+  transition: all 0.15s ease;
+}
+
+.glass-button:hover {
+  background: oklch(1 0 0 / 85%);
+  box-shadow: var(--shadow-elevation-medium);
+}
+
+.glass-button:active {
+  transform: scale(0.98);
+  box-shadow: var(--shadow-elevation-low);
 }

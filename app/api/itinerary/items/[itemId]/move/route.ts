@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { z } from 'zod'
 import { authOptions } from '@/lib/auth'
+import { canEditProject } from '@/lib/auth-utils'
 import { prisma } from '@/lib/db'
 
 const moveItemSchema = z.object({
@@ -28,16 +29,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const body = await request.json()
     const validatedData = moveItemSchema.parse(body)
 
-    // Verify item exists and user owns the itinerary
+    // Verify item exists and user has edit permission
     const item = await prisma.itineraryItem.findUnique({
       where: { id: itemId },
       include: {
         day: {
           include: {
             itinerary: {
-              include: {
-                project: true,
-              },
+              select: { id: true, projectId: true },
             },
           },
         },
@@ -48,7 +47,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Item not found' }, { status: 404 })
     }
 
-    if (item.day.itinerary.project.userId !== session.user.id) {
+    if (!await canEditProject(item.day.itinerary.projectId, session.user.id)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 

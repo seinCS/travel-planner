@@ -7,8 +7,10 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { canEditProject } from '@/lib/auth-utils'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
+import { realtimeBroadcast } from '@/infrastructure/services/realtime'
 
 const createItemSchema = z.object({
   dayId: z.string(),
@@ -32,14 +34,19 @@ export async function POST(
 
     const { id: itineraryId } = await params
 
-    // Verify itinerary ownership through project
+    // Verify itinerary exists
     const itinerary = await prisma.itinerary.findUnique({
       where: { id: itineraryId },
       include: { project: true },
     })
 
-    if (!itinerary || itinerary.project.userId !== session.user.id) {
+    if (!itinerary) {
       return NextResponse.json({ error: 'Itinerary not found' }, { status: 404 })
+    }
+
+    // Check edit permission (owner or member)
+    if (!await canEditProject(itinerary.projectId, session.user.id)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
     const body = await request.json()
@@ -84,6 +91,9 @@ export async function POST(
       },
       include: { place: true },
     })
+
+    // Broadcast realtime event
+    realtimeBroadcast.itemCreated(itinerary.projectId, item, session.user.id)
 
     return NextResponse.json({ item }, { status: 201 })
   } catch (error) {

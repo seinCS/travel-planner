@@ -70,8 +70,8 @@ test.describe('P0: 이미지 업로드 플로우', () => {
     await mockImageUploadAPI(projectDetailPage)
     await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
 
-    // 이미지 탭 버튼 확인
-    const imageTab = projectDetailPage.getByRole('button', { name: /이미지/i })
+    // 이미지 탭 버튼 확인 (여러 개 매칭될 수 있으므로 first() 사용)
+    const imageTab = projectDetailPage.getByRole('button', { name: /이미지/i }).first()
     await expect(imageTab).toBeVisible()
   })
 
@@ -79,8 +79,8 @@ test.describe('P0: 이미지 업로드 플로우', () => {
     await mockImageUploadAPI(projectDetailPage)
     await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
 
-    // 이미지 탭 클릭
-    const imageTab = projectDetailPage.getByRole('button', { name: /이미지/i })
+    // 이미지 탭 클릭 (여러 개 매칭될 수 있으므로 first() 사용)
+    const imageTab = projectDetailPage.getByRole('button', { name: /이미지/i }).first()
     await imageTab.click()
 
     // 업로드 영역 확인 (드래그앤드롭 또는 파일 선택 영역)
@@ -97,8 +97,8 @@ test.describe('P0: 이미지 업로드 플로우', () => {
     await mockImageUploadAPI(projectDetailPage)
     await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
 
-    // 이미지 탭 클릭
-    const imageTab = projectDetailPage.getByRole('button', { name: /이미지/i })
+    // 이미지 탭 클릭 (여러 개 매칭될 수 있으므로 first() 사용)
+    const imageTab = projectDetailPage.getByRole('button', { name: /이미지/i }).first()
     await imageTab.click()
 
     // 잠시 대기
@@ -119,8 +119,8 @@ test.describe('P0: 이미지 업로드 플로우', () => {
     await mockImageUploadAPI(projectDetailPage)
     await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
 
-    // 이미지 탭 클릭
-    const imageTab = projectDetailPage.getByRole('button', { name: /이미지/i })
+    // 이미지 탭 클릭 (여러 개 매칭될 수 있으므로 first() 사용)
+    const imageTab = projectDetailPage.getByRole('button', { name: /이미지/i }).first()
     await imageTab.click()
 
     // 대기
@@ -144,8 +144,8 @@ test.describe('P0: 이미지 삭제 플로우', () => {
     await mockImageUploadAPI(projectDetailPage)
     await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
 
-    // 이미지 탭 클릭
-    const imageTab = projectDetailPage.getByRole('button', { name: /이미지/i })
+    // 이미지 탭 클릭 (여러 개 매칭될 수 있으므로 first() 사용)
+    const imageTab = projectDetailPage.getByRole('button', { name: /이미지/i }).first()
     await imageTab.click()
 
     // 대기
@@ -169,8 +169,8 @@ test.describe('이미지 업로드 UI 접근성', () => {
     await mockImageUploadAPI(projectDetailPage)
     await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
 
-    // 이미지 탭 클릭
-    const imageTab = projectDetailPage.getByRole('button', { name: /이미지/i })
+    // 이미지 탭 클릭 (여러 개 매칭될 수 있으므로 first() 사용)
+    const imageTab = projectDetailPage.getByRole('button', { name: /이미지/i }).first()
     await imageTab.click()
 
     // 파일 입력 요소 확인
@@ -188,8 +188,8 @@ test.describe('이미지 업로드 UI 접근성', () => {
     await mockImageUploadAPI(projectDetailPage)
     await projectDetailPage.goto(`/projects/${TEST_PROJECT.id}`)
 
-    // 이미지 탭 클릭
-    const imageTab = projectDetailPage.getByRole('button', { name: /이미지/i })
+    // 이미지 탭 클릭 (여러 개 매칭될 수 있으므로 first() 사용)
+    const imageTab = projectDetailPage.getByRole('button', { name: /이미지/i }).first()
     await imageTab.click()
 
     // 업로드 버튼 또는 클릭 가능 영역 확인

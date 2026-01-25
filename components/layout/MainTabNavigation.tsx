@@ -1,6 +1,6 @@
 'use client'
 
-export type MainTab = 'places' | 'itinerary'
+export type MainTab = 'places' | 'itinerary' | 'members'
 
 interface MainTabNavigationProps {
   activeTab: MainTab
@@ -9,26 +9,36 @@ interface MainTabNavigationProps {
 
 export function MainTabNavigation({ activeTab, onTabChange }: MainTabNavigationProps) {
   return (
-    <div className="flex border-b bg-white mb-4">
+    <div className="flex gap-2 mb-4 p-1.5 bg-white/50 backdrop-blur-sm rounded-2xl border border-white/30 shadow-[0_2px_8px_oklch(0_0_0/5%)]">
       <button
-        className={`flex-1 sm:flex-none px-6 py-3 text-sm font-medium transition-colors ${
+        className={`flex-1 sm:flex-none px-6 py-2.5 text-sm font-medium transition-all duration-200 rounded-xl ${
           activeTab === 'places'
-            ? 'text-primary border-b-2 border-primary bg-primary/5'
-            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+            ? 'text-gray-900 bg-white shadow-[0_2px_4px_oklch(0_0_0/8%)]'
+            : 'text-muted-foreground hover:text-foreground hover:bg-white/60'
         }`}
         onClick={() => onTabChange('places')}
       >
         📍 장소
       </button>
       <button
-        className={`flex-1 sm:flex-none px-6 py-3 text-sm font-medium transition-colors ${
+        className={`flex-1 sm:flex-none px-6 py-2.5 text-sm font-medium transition-all duration-200 rounded-xl ${
           activeTab === 'itinerary'
-            ? 'text-primary border-b-2 border-primary bg-primary/5'
-            : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+            ? 'text-gray-900 bg-white shadow-[0_2px_4px_oklch(0_0_0/8%)]'
+            : 'text-muted-foreground hover:text-foreground hover:bg-white/60'
         }`}
         onClick={() => onTabChange('itinerary')}
       >
         📅 일정
+      </button>
+      <button
+        className={`flex-1 sm:flex-none px-6 py-2.5 text-sm font-medium transition-all duration-200 rounded-xl ${
+          activeTab === 'members'
+            ? 'text-gray-900 bg-white shadow-[0_2px_4px_oklch(0_0_0/8%)]'
+            : 'text-muted-foreground hover:text-foreground hover:bg-white/60'
+        }`}
+        onClick={() => onTabChange('members')}
+      >
+        👥 멤버
       </button>
     </div>
   )

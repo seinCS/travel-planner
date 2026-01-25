@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button'
 // 기본 4탭 모드 (메인 페이지용)
 export type MobileTab = 'map' | 'list' | 'itinerary' | 'input'
 
-// 공유 페이지용 2탭 모드
-export type ShareMobileTab = 'map' | 'list'
+// 공유 페이지용 3탭 모드 (일정 포함)
+export type ShareMobileTab = 'map' | 'list' | 'itinerary'
 
 // 기본 props (4탭 모드)
 interface DefaultMobileNavigationProps {
@@ -16,7 +16,7 @@ interface DefaultMobileNavigationProps {
   variant?: 'default'
 }
 
-// 공유 페이지 props (2탭 모드)
+// 공유 페이지 props (3탭 모드)
 interface ShareMobileNavigationProps {
   activeTab: ShareMobileTab
   onTabChange: (tab: ShareMobileTab) => void
@@ -36,9 +36,9 @@ const ALL_TABS: { id: MobileTab; label: string; icon: string }[] = [
 export function MobileNavigation(props: MobileNavigationProps) {
   const { activeTab, placeCount = 0, variant = 'default' } = props
 
-  // share 모드에서는 input, itinerary 탭 제외
+  // share 모드에서는 input 탭만 제외 (일정 탭 포함)
   const tabs = variant === 'share'
-    ? ALL_TABS.filter(tab => tab.id !== 'input' && tab.id !== 'itinerary')
+    ? ALL_TABS.filter(tab => tab.id !== 'input')
     : ALL_TABS
 
   const handleTabChange = (tabId: MobileTab) => {

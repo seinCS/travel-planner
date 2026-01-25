@@ -86,7 +86,9 @@ export default function ProjectsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-muted-foreground">로딩 중...</div>
+        <div className="glass-card px-6 py-4 animate-pulse">
+          <div className="text-muted-foreground">로딩 중...</div>
+        </div>
       </div>
     )
   }
@@ -95,7 +97,7 @@ export default function ProjectsPage() {
     <div>
       <div className="flex justify-between items-center mb-8">
         <div>
-          <h1 className="text-2xl font-bold">내 여행 프로젝트</h1>
+          <h1 className="text-2xl font-bold text-gray-800">내 여행 프로젝트</h1>
           <p className="text-muted-foreground">
             SNS 스크린샷을 업로드하여 여행 계획을 세워보세요.
           </p>
@@ -104,15 +106,15 @@ export default function ProjectsPage() {
       </div>
 
       {projects.length === 0 ? (
-        <div className="text-center py-20 bg-white rounded-lg border">
+        <div className="text-center py-20 glass-card">
           <div className="text-4xl mb-4">🗺️</div>
-          <h2 className="text-lg font-semibold mb-2">아직 프로젝트가 없습니다</h2>
+          <h2 className="text-lg font-semibold mb-2 text-gray-800">아직 프로젝트가 없습니다</h2>
           <p className="text-muted-foreground mb-4">
             첫 번째 여행 프로젝트를 만들어보세요!
           </p>
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
           {projects.map((project) => (
             <ProjectCard
               key={project.id}

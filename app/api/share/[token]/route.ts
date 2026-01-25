@@ -34,6 +34,28 @@ export async function GET(
           },
           orderBy: { createdAt: 'asc' },
         },
+        itinerary: {
+          include: {
+            days: {
+              include: {
+                items: {
+                  include: {
+                    place: true,
+                    accommodation: true,
+                  },
+                  orderBy: { order: 'asc' },
+                },
+              },
+              orderBy: { dayNumber: 'asc' },
+            },
+            flights: {
+              orderBy: { departureDate: 'asc' },
+            },
+            accommodations: {
+              orderBy: { checkIn: 'asc' },
+            },
+          },
+        },
       },
     })
 
@@ -60,6 +82,7 @@ export async function GET(
         country: project.country,
       },
       places: project.places,
+      itinerary: project.itinerary,
     })
   } catch (error) {
     console.error('[Share Data Error]', error)

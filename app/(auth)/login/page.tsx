@@ -6,19 +6,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">여행 플래너</CardTitle>
-          <CardDescription>
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/40">
+      {/* Decorative background elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-200/30 rounded-full blur-3xl" />
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-indigo-200/30 rounded-full blur-3xl" />
+      </div>
+
+      <Card className="w-full max-w-md relative glass-card-elevated">
+        <CardHeader className="text-center pb-2">
+          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+            여행 플래너
+          </CardTitle>
+          <CardDescription className="text-muted-foreground">
             SNS 스크린샷을 업로드하면 자동으로 장소를 추출하여 지도에 표시해드립니다.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-4">
           <Button
             onClick={() => signIn('google', { callbackUrl: '/projects' })}
             className="w-full"
             size="lg"
+            variant="glass"
           >
             <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24">
               <path

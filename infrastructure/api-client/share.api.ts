@@ -14,12 +14,20 @@ export interface CloneResult {
   projectId: string
 }
 
+export interface CloneWithItineraryResult {
+  projectId: string
+  message: string
+}
+
 export const shareApi = {
   getSharedProject: (token: string) =>
     apiClient.get<SharedProjectData>(`/share/${token}`),
 
   cloneProject: (token: string) =>
     apiClient.post<CloneResult>(`/share/${token}/clone`),
+
+  cloneWithItinerary: (token: string) =>
+    apiClient.post<CloneWithItineraryResult>(`/share/${token}/clone-itinerary`),
 }
 
 export default shareApi

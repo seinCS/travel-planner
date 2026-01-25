@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/db'
+import { realtimeBroadcast } from '@/infrastructure/services/realtime'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -65,6 +66,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     await prisma.projectMember.delete({
       where: { id: member.id },
     })
+
+    // Broadcast realtime event
+    realtimeBroadcast.memberLeft(projectId, session.user.id, session.user.id)
 
     return new NextResponse(null, { status: 204 })
   } catch (error) {

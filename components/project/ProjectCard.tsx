@@ -32,18 +32,18 @@ export function ProjectCard({
   })
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className="hover-lift group">
       <Link href={`/projects/${id}`}>
         <CardHeader className="pb-2">
-          <CardTitle className="text-lg">{name}</CardTitle>
+          <CardTitle className="text-lg text-gray-800 group-hover:text-gray-900 transition-colors">{name}</CardTitle>
           <p className="text-sm text-muted-foreground">
             {destination}{country && `, ${country}`}
           </p>
         </CardHeader>
         <CardContent>
           <div className="flex gap-4 text-sm text-muted-foreground mb-2">
-            <span>📍 {placesCount}개 장소</span>
-            <span>🖼️ {imagesCount}개 이미지</span>
+            <span className="flex items-center gap-1">📍 {placesCount}개 장소</span>
+            <span className="flex items-center gap-1">🖼️ {imagesCount}개 이미지</span>
           </div>
           <p className="text-xs text-muted-foreground">
             마지막 수정: {formattedDate}
@@ -54,7 +54,7 @@ export function ProjectCard({
         <Button
           variant="ghost"
           size="sm"
-          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+          className="text-red-500 hover:text-red-700 hover:bg-red-50/80 rounded-xl transition-all"
           onClick={(e) => {
             e.preventDefault()
             e.stopPropagation()
