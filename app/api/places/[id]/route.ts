@@ -3,8 +3,9 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { canEditProject } from '@/lib/auth-utils'
 import { prisma } from '@/lib/db'
-import { geocodePlaceWithFallback } from '@/lib/google-maps'
+import { geocodePlaceWithFallback, GeocodingError } from '@/lib/google-maps'
 import { z } from 'zod'
+import { Prisma } from '@prisma/client'
 import { realtimeBroadcast } from '@/infrastructure/services/realtime'
 
 const updatePlaceSchema = z.object({
@@ -68,7 +69,19 @@ export async function PUT(
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 })
     }
-    console.error('Error updating place:', error)
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      console.error('[Place Update Error - DB]', error.code, error.message)
+      return NextResponse.json(
+        { error: '데이터베이스 오류가 발생했습니다.' },
+        { status: 500 }
+      )
+    }
+
+    console.error(
+      'Error updating place:',
+      error instanceof Error ? error.message : 'Unknown error'
+    )
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -147,7 +160,28 @@ export async function PATCH(
     if (error instanceof z.ZodError) {
       return NextResponse.json({ error: error.issues }, { status: 400 })
     }
-    console.error('Error relocating place:', error)
+
+    // GeocodingError 처리 (Google Maps API 오류)
+    if (error instanceof GeocodingError) {
+      console.error('[Place Relocate Error - Geocoding]', error.message)
+      return NextResponse.json(
+        { error: '위치 검색 서비스에 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.' },
+        { status: 503 }
+      )
+    }
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      console.error('[Place Relocate Error - DB]', error.code, error.message)
+      return NextResponse.json(
+        { error: '데이터베이스 오류가 발생했습니다.' },
+        { status: 500 }
+      )
+    }
+
+    console.error(
+      'Error relocating place:',
+      error instanceof Error ? error.message : 'Unknown error'
+    )
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
@@ -188,7 +222,18 @@ export async function DELETE(
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('Error deleting place:', error)
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      console.error('[Place Delete Error - DB]', error.code, error.message)
+      return NextResponse.json(
+        { error: '데이터베이스 오류가 발생했습니다.' },
+        { status: 500 }
+      )
+    }
+
+    console.error(
+      'Error deleting place:',
+      error instanceof Error ? error.message : 'Unknown error'
+    )
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

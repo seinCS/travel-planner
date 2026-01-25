@@ -1,3 +1,17 @@
+/**
+ * Custom error class for geocoding failures
+ * Used to distinguish Google Maps API errors from other errors
+ */
+export class GeocodingError extends Error {
+  constructor(
+    message: string,
+    public readonly code?: string
+  ) {
+    super(message)
+    this.name = 'GeocodingError'
+  }
+}
+
 export interface GeocodingResult {
   latitude: number
   longitude: number

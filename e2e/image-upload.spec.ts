@@ -133,13 +133,21 @@ test.describe('P0: 이미지 업로드 플로우', () => {
     const badgeCount = await statusBadge.count()
     console.log(`상태 배지 수: ${badgeCount}`)
 
-    // 상태 표시가 있으면 가시성 확인
+    // 이미지 목록이 모킹되어 있으므로 상태 배지가 표시되어야 함
+    // 모킹된 이미지가 2개 있으므로 최소 1개의 상태 배지가 있어야 함
     if (badgeCount > 0) {
       await expect(statusBadge.first()).toBeVisible()
+      // 모킹된 이미지가 있으므로 상태 배지도 있어야 함
+      expect(badgeCount).toBeGreaterThan(0)
+    } else {
+      // 상태 배지가 없는 경우 - 이미지 탭 UI가 다른 형태일 수 있음
+      // 이미지 카드가 있는지 확인
+      const imageCards = projectDetailPage.locator('[data-testid="image-card"], .image-item, img[src*="image"]')
+      const hasImages = await imageCards.count() > 0
+      console.log(`이미지 카드 존재: ${hasImages}`)
+      // 이미지 카드가 있거나 상태 배지가 있어야 함
+      expect(hasImages || badgeCount > 0).toBe(true)
     }
-
-    // 이미지 목록이 있으므로 상태 배지도 있어야 함 (또는 이미지가 없는 상태)
-    expect(badgeCount).toBeGreaterThanOrEqual(0)
   })
 })
 

@@ -7,6 +7,7 @@
  * Shows avatar stack with tooltips showing user information.
  */
 
+import { useMemo } from 'react'
 import { usePresence } from '@/hooks/realtime'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -27,12 +28,17 @@ export function PresenceIndicator({
 }: PresenceIndicatorProps) {
   const { members, currentUserId, isConnected } = usePresence(projectId)
 
+  // Memoize visible members to prevent unnecessary array creation on each render
+  const visibleMembers = useMemo(
+    () => members.slice(0, maxVisible),
+    [members, maxVisible]
+  )
+
+  const remainingCount = members.length - maxVisible
+
   if (!isConnected || members.length === 0) {
     return null
   }
-
-  const visibleMembers = members.slice(0, maxVisible)
-  const remainingCount = members.length - maxVisible
 
   return (
     <TooltipProvider>
