@@ -1,24 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// 간단한 인메모리 캐시 (프로덕션에서는 Redis 권장)
+/**
+ * 인메모리 캐시 및 Rate Limiting
+ *
+ * ⚠️ 서버리스 환경 제한사항:
+ * Vercel 등 서버리스 환경에서는 각 요청이 다른 인스턴스에서 처리될 수 있어
+ * 인메모리 캐시와 rate limiting이 완벽하게 작동하지 않을 수 있습니다.
+ * 프로덕션에서 완전한 기능이 필요하면 Vercel KV 또는 Upstash Redis 사용을 권장합니다.
+ *
+ * 현재 구현은:
+ * - 같은 인스턴스 내에서의 중복 요청 방지
+ * - 콜드 스타트 시 캐시가 비어있어도 정상 동작
+ * - API 비용 절감에 부분적 효과
+ */
 const geocodeCache = new Map<string, { lat: number; lng: number; timestamp: number }>()
 const CACHE_TTL = 1000 * 60 * 60 * 24 // 24시간
+const MAX_CACHE_SIZE = 1000
 
-// Rate limiting: 분당 최대 요청 수
+// Rate limiting 설정 (서버리스 환경에서는 인스턴스별로 적용됨)
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
-const RATE_LIMIT = 60 // 분당 60회
+const RATE_LIMIT = 20 // 분당 20회 (비용 보호)
 const RATE_WINDOW = 60 * 1000 // 1분
+
+/**
+ * 클라이언트 IP 추출 (프록시 우회 방지)
+ * x-forwarded-for 헤더에서 첫 번째 IP만 신뢰
+ */
+function getClientIp(request: NextRequest): string {
+  // Vercel 환경에서는 x-real-ip 또는 x-vercel-forwarded-for 우선
+  const vercelIp = request.headers.get('x-real-ip')
+  if (vercelIp) return vercelIp
+
+  const forwardedFor = request.headers.get('x-forwarded-for')
+  if (forwardedFor) {
+    // 첫 번째 IP만 신뢰 (프록시 체인의 원본 클라이언트)
+    return forwardedFor.split(',')[0].trim()
+  }
+
+  return 'unknown'
+}
+
+// IP 추출 실패 시 더 엄격한 제한 (분당 5회)
+const UNKNOWN_IP_RATE_LIMIT = 5
 
 function checkRateLimit(ip: string): boolean {
   const now = Date.now()
   const record = rateLimitMap.get(ip)
+  // IP 추출 실패 시 더 엄격한 제한 적용
+  const limit = ip === 'unknown' ? UNKNOWN_IP_RATE_LIMIT : RATE_LIMIT
 
   if (!record || now > record.resetTime) {
     rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_WINDOW })
     return true
   }
 
-  if (record.count >= RATE_LIMIT) {
+  if (record.count >= limit) {
     return false
   }
 
@@ -26,9 +62,38 @@ function checkRateLimit(ip: string): boolean {
   return true
 }
 
+/**
+ * 좌표 유효성 검증
+ */
+function isValidCoordinate(lat: number, lng: number): boolean {
+  return (
+    typeof lat === 'number' &&
+    typeof lng === 'number' &&
+    !isNaN(lat) &&
+    !isNaN(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  )
+}
+
+/**
+ * 캐시 정리 (FIFO 방식으로 초과분 일괄 삭제)
+ */
+function trimCache(): void {
+  if (geocodeCache.size > MAX_CACHE_SIZE) {
+    const keysToDelete = Array.from(geocodeCache.keys()).slice(
+      0,
+      geocodeCache.size - MAX_CACHE_SIZE
+    )
+    keysToDelete.forEach((key) => geocodeCache.delete(key))
+  }
+}
+
 export async function GET(request: NextRequest) {
   // Rate limiting 체크
-  const ip = request.headers.get('x-forwarded-for') || 'unknown'
+  const ip = getClientIp(request)
   if (!checkRateLimit(ip)) {
     return NextResponse.json(
       { error: 'Rate limit exceeded. Please try again later.' },
@@ -45,7 +110,7 @@ export async function GET(request: NextRequest) {
   }
 
   // 서버 전용 API 키 사용 (NEXT_PUBLIC_ 접두사 없음)
-  // fallback으로 NEXT_PUBLIC_ 버전도 확인 (마이그레이션 기간)
+  // TODO: NEXT_PUBLIC_ fallback은 2026-03-01까지 유지 후 제거 예정
   const apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
   if (!apiKey) {
@@ -78,22 +143,18 @@ export async function GET(request: NextRequest) {
       const lat = result?.geometry?.location?.lat
       const lng = result?.geometry?.location?.lng
 
-      if (typeof lat !== 'number' || typeof lng !== 'number') {
-        console.error('Invalid geocoding response structure:', result)
+      // 좌표 유효성 검증 (타입 + 범위)
+      if (!isValidCoordinate(lat, lng)) {
+        console.error('Invalid geocoding response - invalid coordinates:', { lat, lng, result })
         return NextResponse.json(
           { error: 'Invalid geocoding response' },
           { status: 500 }
         )
       }
 
-      // 캐시 저장
+      // 캐시 저장 및 정리
       geocodeCache.set(cacheKey, { lat, lng, timestamp: Date.now() })
-
-      // 캐시 크기 제한 (최대 1000개)
-      if (geocodeCache.size > 1000) {
-        const oldestKey = geocodeCache.keys().next().value
-        if (oldestKey) geocodeCache.delete(oldestKey)
-      }
+      trimCache()
 
       return NextResponse.json({ lat, lng })
     }

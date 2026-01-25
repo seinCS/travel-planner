@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { getServerApiKey } from '@/lib/google-maps'
 import { z } from 'zod'
 
 const searchSchema = z.object({
@@ -49,7 +50,7 @@ export async function GET(request: Request) {
       language,
     })
 
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    const apiKey = getServerApiKey()
     if (!apiKey) {
       return NextResponse.json(
         { error: 'Google Maps API key not configured' },
@@ -130,7 +131,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'placeId is required' }, { status: 400 })
     }
 
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    const apiKey = getServerApiKey()
     if (!apiKey) {
       return NextResponse.json(
         { error: 'Google Maps API key not configured' },
