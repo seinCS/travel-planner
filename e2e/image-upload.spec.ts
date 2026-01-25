@@ -133,21 +133,18 @@ test.describe('P0: 이미지 업로드 플로우', () => {
     const badgeCount = await statusBadge.count()
     console.log(`상태 배지 수: ${badgeCount}`)
 
-    // 이미지 목록이 모킹되어 있으므로 상태 배지가 표시되어야 함
-    // 모킹된 이미지가 2개 있으므로 최소 1개의 상태 배지가 있어야 함
+    // 이미지 목록이 모킹되어 있으므로 상태 배지 또는 이미지가 표시되어야 함
+    const imageCards = projectDetailPage.locator('[data-testid="image-card"], .image-item, img[src*="image"]')
+    const imageCount = await imageCards.count()
+    console.log(`이미지 카드 존재: ${imageCount > 0}`)
+
     if (badgeCount > 0) {
+      // 상태 배지가 있으면 첫 번째 배지가 보이는지 확인
       await expect(statusBadge.first()).toBeVisible()
-      // 모킹된 이미지가 있으므로 상태 배지도 있어야 함
-      expect(badgeCount).toBeGreaterThan(0)
-    } else {
-      // 상태 배지가 없는 경우 - 이미지 탭 UI가 다른 형태일 수 있음
-      // 이미지 카드가 있는지 확인
-      const imageCards = projectDetailPage.locator('[data-testid="image-card"], .image-item, img[src*="image"]')
-      const hasImages = await imageCards.count() > 0
-      console.log(`이미지 카드 존재: ${hasImages}`)
-      // 이미지 카드가 있거나 상태 배지가 있어야 함
-      expect(hasImages || badgeCount > 0).toBe(true)
     }
+
+    // 상태 배지 또는 이미지 카드가 있어야 함
+    expect(badgeCount > 0 || imageCount > 0).toBe(true)
   })
 })
 
@@ -170,9 +167,13 @@ test.describe('P0: 이미지 삭제 플로우', () => {
     const hasDeleteButton = await deleteButton.first().isVisible().catch(() => false)
     const hasCloseButton = await closeButton.first().isVisible().catch(() => false)
 
-    // 삭제 기능이 있으면 pass
-    console.log(`삭제 버튼 표시: ${hasDeleteButton || hasCloseButton}`)
-    expect(hasDeleteButton || hasCloseButton || true).toBe(true)
+    // 삭제 기능 또는 이미지 관리 UI가 있는지 확인
+    // 이미지 카드가 있으면 삭제 기능이 어떤 형태로든 제공될 것으로 가정
+    const imageCards = projectDetailPage.locator('[data-testid="image-card"], .image-item, img[src*="image"]')
+    const hasImageCards = await imageCards.count() > 0
+    console.log(`삭제 버튼 표시: ${hasDeleteButton || hasCloseButton}, 이미지 카드: ${hasImageCards}`)
+    // 삭제 버튼이 있거나, 이미지 카드가 있어야 함 (이미지가 있으면 삭제 기능 존재 가정)
+    expect(hasDeleteButton || hasCloseButton || hasImageCards).toBe(true)
   })
 })
 

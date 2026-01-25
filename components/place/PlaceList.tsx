@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useCallback } from 'react'
+import { useMemo, useState, useCallback, memo } from 'react'
 import { CATEGORY_STYLES } from '@/lib/constants'
 import { Place } from '@/types'
 import { Button } from '@/components/ui/button'
@@ -25,7 +25,8 @@ interface PlaceListProps {
   onCategoryFilterChange: (category: string | null) => void
 }
 
-export function PlaceList({
+// rerender-memo 패턴: 부모 리렌더링 시 불필요한 재렌더링 방지
+export const PlaceList = memo(function PlaceList({
   places,
   selectedPlaceId,
   onPlaceSelect,
@@ -230,4 +231,4 @@ export function PlaceList({
       </Dialog>
     </div>
   )
-}
+})

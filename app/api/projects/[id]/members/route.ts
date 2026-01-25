@@ -17,6 +17,8 @@ interface RouteParams {
 /**
  * GET /api/projects/[id]/members
  * List all members of a project
+ *
+ * Optimized: 3단계 쿼리 → 단일 쿼리로 통합 (async-parallel 패턴)
  */
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
@@ -27,57 +29,48 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const { id: projectId } = await params
 
-    // Check if user has access to the project (owner or member)
-    const project = await prisma.project.findUnique({
+    // 단일 쿼리로 프로젝트 + 멤버 정보 동시 조회 (워터폴 제거)
+    const projectWithMembers = await prisma.project.findUnique({
       where: { id: projectId },
       select: {
         id: true,
         userId: true,
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                image: true,
+              },
+            },
+          },
+          orderBy: [{ role: 'asc' }, { joinedAt: 'asc' }],
+        },
       },
     })
 
-    if (!project) {
+    if (!projectWithMembers) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 })
     }
 
-    // Check if user is owner or member
-    const isMember = await prisma.projectMember.findUnique({
-      where: {
-        projectId_userId: {
-          projectId,
-          userId: session.user.id,
-        },
-      },
-    })
+    // 메모리 내에서 권한 확인 (추가 쿼리 불필요)
+    const isOwner = projectWithMembers.userId === session.user.id
+    const currentUserMember = projectWithMembers.members.find(
+      (m) => m.userId === session.user.id
+    )
 
-    const isOwner = project.userId === session.user.id
-
-    if (!isOwner && !isMember) {
+    // 권한 확인: owner도 member도 아니면 거부
+    if (!isOwner && !currentUserMember) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
-    // Get all members
-    const members = await prisma.projectMember.findMany({
-      where: { projectId },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true,
-          },
-        },
-      },
-      orderBy: [{ role: 'asc' }, { joinedAt: 'asc' }],
-    })
-
     // Determine current user's role
-    const currentUserMember = members.find((m) => m.userId === session.user.id)
     const currentUserRole = isOwner ? 'owner' : currentUserMember?.role || 'member'
 
     return NextResponse.json({
-      members,
+      members: projectWithMembers.members,
       currentUserRole,
     })
   } catch (error) {

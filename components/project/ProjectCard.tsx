@@ -1,5 +1,6 @@
 'use client'
 
+import { memo } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -19,7 +20,8 @@ interface ProjectCardProps {
   onLeave?: (id: string) => void
 }
 
-export function ProjectCard({
+// rerender-memo 패턴: 프로젝트 목록 렌더링 최적화
+export const ProjectCard = memo(function ProjectCard({
   id,
   name,
   destination,
@@ -118,4 +120,4 @@ export function ProjectCard({
       </div>
     </Card>
   )
-}
+})

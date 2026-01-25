@@ -25,36 +25,29 @@ export interface GeocodingResult {
 }
 
 // 도시/국가명으로 좌표 가져오기 (지도 초기 중심점용)
+// 서버 API를 통해 호출하여 CORS 문제 방지
 export async function geocodeDestination(
   destination: string,
   country?: string
 ): Promise<{ lat: number; lng: number } | null> {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-
-  if (!apiKey) {
-    console.error('Google Maps API key not configured')
-    return null
+  const params = new URLSearchParams({ destination })
+  if (country) {
+    params.append('country', country)
   }
 
-  const searchQuery = country ? `${destination}, ${country}` : destination
-  const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
-    searchQuery
-  )}&key=${apiKey}`
-
   try {
-    const response = await fetch(url)
-    const data = await response.json()
+    const response = await fetch(`/api/geocode/destination?${params.toString()}`)
 
-    if (data.status === 'OK' && data.results.length > 0) {
-      const result = data.results[0]
-      return {
-        lat: result.geometry.location.lat,
-        lng: result.geometry.location.lng,
-      }
+    if (!response.ok) {
+      console.error('Geocoding destination failed:', response.status)
+      return null
     }
 
-    console.error('Geocoding destination failed:', data.status)
-    return null
+    const data = await response.json()
+    return {
+      lat: data.lat,
+      lng: data.lng,
+    }
   } catch (error) {
     console.error('Geocoding destination error:', error)
     return null

@@ -83,6 +83,14 @@ interface SharedItineraryViewProps {
   onPlaceClick?: (placeId: string) => void
 }
 
+// Helper function moved outside component to prevent recreation on each render
+function calculateNights(checkIn: string, checkOut: string): number {
+  const start = new Date(checkIn)
+  const end = new Date(checkOut)
+  const diff = end.getTime() - start.getTime()
+  return Math.ceil(diff / (1000 * 60 * 60 * 24))
+}
+
 export function SharedItineraryView({
   itinerary,
   onPlaceClick,
@@ -125,14 +133,6 @@ export function SharedItineraryView({
   // Format date range
   const dateRange = `${format(new Date(itinerary.startDate), 'M월 d일', { locale: ko })} - ${format(new Date(itinerary.endDate), 'M월 d일', { locale: ko })}`
   const totalDays = itinerary.days.length
-
-  // Calculate nights helper
-  const calculateNights = (checkIn: string, checkOut: string): number => {
-    const start = new Date(checkIn)
-    const end = new Date(checkOut)
-    const diff = end.getTime() - start.getTime()
-    return Math.ceil(diff / (1000 * 60 * 60 * 24))
-  }
 
   return (
     <div className="h-full flex flex-col">

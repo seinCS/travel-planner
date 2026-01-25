@@ -44,22 +44,34 @@ export async function GET(
       return NextResponse.json({ error: API_ERRORS.PROJECT_ACCESS_DENIED }, { status: 404 })
     }
 
-    const places = await prisma.place.findMany({
-      where: { projectId: id },
-      include: {
-        placeImages: {
-          include: {
-            image: true,
+    // 병렬 쿼리로 places와 failedImages 동시 조회 (async-parallel 패턴)
+    // Promise.allSettled 사용으로 개별 에러 처리
+    const [placesResult, failedImagesResult] = await Promise.allSettled([
+      prisma.place.findMany({
+        where: { projectId: id },
+        include: {
+          placeImages: {
+            include: {
+              image: true,
+            },
           },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
+        orderBy: { createdAt: 'desc' },
+      }),
+      prisma.image.findMany({
+        where: { projectId: id, status: 'failed' },
+      }),
+    ])
 
-    // 실패한 이미지 목록
-    const failedImages = await prisma.image.findMany({
-      where: { projectId: id, status: 'failed' },
-    })
+    // 결과 추출 (실패 시 빈 배열)
+    const places = placesResult.status === 'fulfilled' ? placesResult.value : []
+    const failedImages = failedImagesResult.status === 'fulfilled' ? failedImagesResult.value : []
+
+    // places 조회 실패는 에러로 처리 (핵심 데이터)
+    if (placesResult.status === 'rejected') {
+      console.error('Failed to fetch places:', placesResult.reason)
+      return NextResponse.json({ error: API_ERRORS.INTERNAL_ERROR }, { status: 500 })
+    }
 
     return NextResponse.json({ places, failedImages })
   } catch (error) {
@@ -134,20 +146,21 @@ export async function POST(
       },
     })
 
-    // 이미지 연결
+    // 이미지 연결 (병렬 처리로 최적화)
     if (validated.imageIds?.length) {
-      await prisma.placeImage.createMany({
-        data: validated.imageIds.map((imageId) => ({
-          placeId: place.id,
-          imageId,
-        })),
-      })
-
-      // 연결된 이미지 상태 업데이트
-      await prisma.image.updateMany({
-        where: { id: { in: validated.imageIds } },
-        data: { status: 'processed' },
-      })
+      await Promise.all([
+        prisma.placeImage.createMany({
+          data: validated.imageIds.map((imageId) => ({
+            placeId: place.id,
+            imageId,
+          })),
+        }),
+        // 연결된 이미지 상태 업데이트 (병렬 실행)
+        prisma.image.updateMany({
+          where: { id: { in: validated.imageIds } },
+          data: { status: 'processed' },
+        }),
+      ])
     }
 
     return NextResponse.json(place, { status: 201 })
