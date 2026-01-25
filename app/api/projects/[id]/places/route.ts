@@ -63,15 +63,23 @@ export async function GET(
       }),
     ])
 
-    // 결과 추출 (실패 시 빈 배열)
-    const places = placesResult.status === 'fulfilled' ? placesResult.value : []
-    const failedImages = failedImagesResult.status === 'fulfilled' ? failedImagesResult.value : []
-
     // places 조회 실패는 에러로 처리 (핵심 데이터)
     if (placesResult.status === 'rejected') {
       console.error('Failed to fetch places:', placesResult.reason)
       return NextResponse.json({ error: API_ERRORS.INTERNAL_ERROR }, { status: 500 })
     }
+
+    // 결과 추출
+    const places = placesResult.value
+
+    // failedImages 조회 실패는 로깅 후 빈 배열로 대체 (부수적 데이터)
+    const failedImages =
+      failedImagesResult.status === 'fulfilled'
+        ? failedImagesResult.value
+        : (() => {
+            console.error('Failed to fetch failed images (non-critical):', failedImagesResult.reason)
+            return []
+          })()
 
     return NextResponse.json({ places, failedImages })
   } catch (error) {

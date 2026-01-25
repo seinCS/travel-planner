@@ -54,13 +54,21 @@ export async function geocodeDestination(
   }
 }
 
+/**
+ * 서버 전용 Google Maps API 키 가져오기
+ * TODO: NEXT_PUBLIC_ fallback은 2026-03-01까지 유지 후 제거 예정
+ */
+function getServerApiKey(): string | undefined {
+  return process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+}
+
 // 기본 geocodePlace (단일 검색어)
 export async function geocodePlace(
   placeName: string,
   destination: string,
   country?: string
 ): Promise<GeocodingResult | null> {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+  const apiKey = getServerApiKey()
 
   if (!apiKey) {
     console.error('Google Maps API key not configured')
@@ -127,7 +135,7 @@ export async function geocodePlaceWithFallback(
   destination: string,
   country?: string
 ): Promise<GeocodingResult | null> {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+  const apiKey = getServerApiKey()
 
   // 병렬로 모든 전략을 동시에 시도하여 첫 번째 성공 결과 반환
   // Promise.allSettled를 사용하여 모든 결과를 수집 후 우선순위대로 반환
@@ -286,7 +294,7 @@ export interface PlaceDetails {
 
 // Place Details API 호출
 export async function getPlaceDetails(placeId: string): Promise<PlaceDetails | null> {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+  const apiKey = getServerApiKey()
   if (!apiKey) {
     console.error('Google Maps API key not configured')
     return null
@@ -358,7 +366,12 @@ export async function getPlaceDetails(placeId: string): Promise<PlaceDetails | n
   }
 }
 
-// 사진 URL 생성 헬퍼
+/**
+ * 사진 URL 생성 헬퍼
+ *
+ * 주의: 이 함수는 클라이언트 컴포넌트에서 <img src=...>로 사용되므로
+ * NEXT_PUBLIC_ 키를 사용해야 합니다 (브라우저에서 직접 Google 서버에 요청)
+ */
 export function getPhotoUrl(photoReference: string, maxWidth: number = 400): string {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
   return `https://maps.googleapis.com/maps/api/place/photo?maxwidth=${maxWidth}&photo_reference=${photoReference}&key=${apiKey}`

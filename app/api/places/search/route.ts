@@ -49,7 +49,9 @@ export async function GET(request: Request) {
       language,
     })
 
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    // 서버 전용 API 키 사용
+    // TODO: NEXT_PUBLIC_ fallback은 2026-03-01까지 유지 후 제거 예정
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
     if (!apiKey) {
       return NextResponse.json(
         { error: 'Google Maps API key not configured' },
@@ -130,7 +132,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'placeId is required' }, { status: 400 })
     }
 
-    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    // 서버 전용 API 키 사용
+    // TODO: NEXT_PUBLIC_ fallback은 2026-03-01까지 유지 후 제거 예정
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
     if (!apiKey) {
       return NextResponse.json(
         { error: 'Google Maps API key not configured' },

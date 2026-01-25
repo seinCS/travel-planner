@@ -13,6 +13,7 @@ import { getPlaceDetails } from '@/lib/google-maps'
 import { API_ERRORS, type PlaceCategory } from '@/lib/constants'
 
 // 서버 전용 API 키 (없으면 public 키 fallback)
+// TODO: NEXT_PUBLIC_ fallback은 2026-03-01까지 유지 후 제거 예정
 const getGoogleApiKey = () =>
   process.env.GOOGLE_MAPS_API_KEY || process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
 
