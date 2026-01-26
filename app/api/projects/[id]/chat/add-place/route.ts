@@ -58,13 +58,19 @@ export async function POST(
     /**
      * Sanitize string by removing potentially harmful characters
      * while preserving international characters (Korean, Chinese, Japanese, etc.)
+     *
+     * Note: Prisma ORM provides SQL injection protection, but we add extra
+     * sanitization as defense-in-depth.
      */
     const sanitizeString = (str: string, maxLength: number): string => {
       return str
-        // Remove SQL special characters that could be used for injection
-        .replace(/[;'"\\`]/g, '')
-        // Remove null bytes
-        .replace(/\0/g, '')
+        // Normalize Unicode to canonical form (NFC) - handles lookalike characters
+        .normalize('NFC')
+        // Remove null bytes and other control characters
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+        // Remove SQL special characters (minimal set to preserve apostrophes in names)
+        // Note: Prisma parameterizes queries, so this is extra precaution
+        .replace(/[;\\`]/g, '')
         // Normalize whitespace
         .replace(/\s+/g, ' ')
         .trim()

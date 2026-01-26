@@ -57,9 +57,12 @@ const INJECTION_PATTERNS: Array<{ pattern: RegExp; name: string }> = [
   { pattern: /\u2060/, name: 'word_joiner' },
   { pattern: /\u180E/, name: 'mongolian_vowel_separator' },
 
-  // Base64 encoded payloads (lowered threshold from 40 to 20 chars)
-  // Matches strings that look like base64-encoded data (20+ chars of base64 alphabet)
-  { pattern: /(?:[A-Za-z0-9+/]{4}){5,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?/, name: 'base64_payload' },
+  // Base64 encoded payloads - stricter detection
+  // Only match strings that:
+  // 1. Have 60+ chars (enough to encode meaningful payload)
+  // 2. MUST end with proper Base64 padding (= or ==) to reduce false positives
+  // 3. This avoids blocking normal text like "ABCDEFGHIJKLMNOPQRST"
+  { pattern: /(?:[A-Za-z0-9+/]{4}){15,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)/, name: 'base64_payload' },
 
   // Delimiter manipulation
   { pattern: /```.*system/i, name: 'code_block_system' },

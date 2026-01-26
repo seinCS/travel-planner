@@ -60,14 +60,17 @@ export function RealtimeProvider({ projectId, children }: RealtimeProviderProps)
         realtimeClient = new ProjectRealtimeClient(projectId)
 
         // 사용자 정보 설정 (구독 전에 설정해야 presence가 제대로 작동)
-        realtimeClient.trackPresence({
+        // Note: trackPresence stores user info synchronously, which is then used
+        // by subscribe() to register presence after channel subscription completes.
+        // The await ensures any async cleanup from previous calls completes first.
+        await realtimeClient.trackPresence({
           id: session.user.id,
           name: session.user.name || 'Anonymous',
           email: session.user.email || '',
           image: session.user.image || null,
         })
 
-        // 구독 시작
+        // 구독 시작 (trackPresence에서 설정된 사용자 정보를 사용하여 presence 등록)
         await realtimeClient.subscribe()
 
         if (isMounted) {

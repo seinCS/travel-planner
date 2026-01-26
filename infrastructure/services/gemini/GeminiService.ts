@@ -18,6 +18,25 @@ import { cleanChatResponse } from '@/lib/chat-utils'
 const GEMINI_MODEL = 'gemini-2.0-flash'
 
 /**
+ * Validate API key at module load time (server startup)
+ * This catches configuration errors early rather than at first request
+ */
+function validateApiKeyOnStartup(): void {
+  // Only validate in production or when explicitly enabled
+  // Skip during build time (process.env is not fully available)
+  if (typeof window !== 'undefined') return
+
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey && process.env.NODE_ENV === 'production') {
+    console.error('[GeminiService] CRITICAL: GEMINI_API_KEY is not configured in production')
+    // Don't throw to allow build to complete, but log critical error
+  }
+}
+
+// Run validation on module load
+validateApiKeyOnStartup()
+
+/**
  * Validate if an object is a valid place
  */
 function isValidPlace(data: unknown): data is Record<string, unknown> {
