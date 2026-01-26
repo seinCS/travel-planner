@@ -4,118 +4,63 @@
  * SWR cache invalidation hook for real-time collaboration.
  * Listens to realtime events from Supabase and invalidates
  * relevant SWR cache entries when other users make changes.
+ *
+ * Uses shared RealtimeClient from RealtimeContext to avoid duplicate subscriptions.
  */
 
-import { useEffect, useCallback, useState, useRef } from 'react'
+import { useEffect, useCallback } from 'react'
 import { useSWRConfig } from 'swr'
 import { useSession } from 'next-auth/react'
-import { ProjectRealtimeClient } from '@/infrastructure/services/realtime'
+import { useRealtimeClient } from '@/contexts/RealtimeContext'
 import type { RealtimeEvent, RealtimeEventType } from '@/types/realtime'
 
 export function useRealtimeSync(projectId: string | null) {
   const { mutate } = useSWRConfig()
   const { data: session } = useSession()
-  const [client, setClient] = useState<ProjectRealtimeClient | null>(null)
-
-  // Ref to track if component is mounted (for cleanup verification)
-  const isMountedRef = useRef(true)
-  // Ref to store unsubscribe function for sync callback
-  const unsubscribeSyncRef = useRef<(() => void) | null>(null)
+  const { client, isConnected } = useRealtimeClient()
 
   useEffect(() => {
-    // Reset mounted flag on mount
-    isMountedRef.current = true
+    if (!client || !session?.user || !projectId) return
 
-    if (!projectId || !session?.user) return
+    // 동기화 이벤트 리스너 등록
+    const unsubscribe = client.onSync((event: RealtimeEvent) => {
+      // 자신이 보낸 이벤트는 무시 (이미 로컬에서 처리됨)
+      if (event.userId === session.user.id) return
 
-    let realtimeClient: ProjectRealtimeClient | null = null
+      // 이벤트 타입별 캐시 무효화
+      switch (event.type) {
+        case 'itinerary:created':
+        case 'itinerary:updated':
+        case 'itinerary:deleted':
+        case 'item:created':
+        case 'item:updated':
+        case 'item:deleted':
+        case 'items:reordered':
+        case 'flight:created':
+        case 'flight:updated':
+        case 'flight:deleted':
+        case 'accommodation:created':
+        case 'accommodation:updated':
+        case 'accommodation:deleted':
+          mutate(`/api/projects/${projectId}/itinerary`)
+          break
 
-    const initializeClient = async () => {
-      try {
-        realtimeClient = new ProjectRealtimeClient(projectId)
+        case 'place:created':
+        case 'place:updated':
+        case 'place:deleted':
+          mutate(`/api/projects/${projectId}/places`)
+          break
 
-        // Store the unsubscribe function from onSync
-        unsubscribeSyncRef.current = realtimeClient.onSync((event: RealtimeEvent) => {
-          // Check if component is still mounted before processing
-          if (!isMountedRef.current) return
-
-          // 자신이 보낸 이벤트는 무시 (이미 로컬에서 처리됨)
-          if (event.userId === session.user.id) return
-
-          // 이벤트 타입별 캐시 무효화
-          switch (event.type) {
-            case 'itinerary:created':
-            case 'itinerary:updated':
-            case 'itinerary:deleted':
-            case 'item:created':
-            case 'item:updated':
-            case 'item:deleted':
-            case 'items:reordered':
-            case 'flight:created':
-            case 'flight:updated':
-            case 'flight:deleted':
-            case 'accommodation:created':
-            case 'accommodation:updated':
-            case 'accommodation:deleted':
-              mutate(`/api/projects/${projectId}/itinerary`)
-              break
-
-            case 'place:created':
-            case 'place:updated':
-            case 'place:deleted':
-              mutate(`/api/projects/${projectId}/places`)
-              break
-
-            case 'member:joined':
-            case 'member:left':
-            case 'member:updated':
-              mutate(`/api/projects/${projectId}/members`)
-              break
-          }
-        })
-
-        await realtimeClient.subscribe()
-
-        // Only update state if still mounted
-        if (isMountedRef.current) {
-          setClient(realtimeClient)
-        } else {
-          // If unmounted during initialization, clean up
-          await realtimeClient.unsubscribe()
-        }
-      } catch (error) {
-        console.error('[useRealtimeSync] Failed to initialize realtime client:', error)
-        // Clean up on error
-        if (unsubscribeSyncRef.current) {
-          unsubscribeSyncRef.current()
-          unsubscribeSyncRef.current = null
-        }
+        case 'member:joined':
+        case 'member:left':
+        case 'member:updated':
+          mutate(`/api/projects/${projectId}/members`)
+          break
       }
-    }
+    })
 
-    initializeClient()
-
-    return () => {
-      // Mark as unmounted
-      isMountedRef.current = false
-
-      // Clean up sync callback
-      if (unsubscribeSyncRef.current) {
-        unsubscribeSyncRef.current()
-        unsubscribeSyncRef.current = null
-      }
-
-      // Unsubscribe from realtime channel (fire-and-forget with error handling)
-      // Note: useEffect cleanup can't be async, so we handle errors internally
-      if (realtimeClient) {
-        realtimeClient.unsubscribe().catch((error) => {
-          console.warn('[useRealtimeSync] Cleanup error (safe to ignore):', error)
-        })
-      }
-
-      setClient(null)
-    }
-  }, [projectId, session?.user, mutate])
+    return unsubscribe
+  }, [client, session?.user, mutate, projectId])
 
   const broadcast = useCallback(
     (type: RealtimeEventType, payload: Record<string, unknown> = {}) => {
@@ -131,5 +76,5 @@ export function useRealtimeSync(projectId: string | null) {
     [client, session?.user?.id]
   )
 
-  return { broadcast, isConnected: !!client }
+  return { broadcast, isConnected }
 }

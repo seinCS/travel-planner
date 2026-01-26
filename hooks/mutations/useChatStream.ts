@@ -8,6 +8,7 @@ import { useState, useCallback, useRef, useEffect } from 'react'
 import type { StreamChunk, RecommendedPlace } from '@/domain/interfaces/ILLMService'
 import { useSWRConfig } from 'swr'
 import { cleanChatResponse } from '@/lib/utils'
+import { HttpError } from '@/lib/errors'
 
 interface ReconnectionConfig {
   maxRetries: number
@@ -21,18 +22,6 @@ const RECONNECTION_CONFIG: ReconnectionConfig = {
   maxDelayMs: 5000,
 }
 
-// HTTP status codes that should NOT be retried
-// 4xx errors (except 408, 429) are client errors that won't succeed on retry
-const NON_RETRYABLE_STATUS_CODES = new Set([
-  400, // Bad Request
-  401, // Unauthorized
-  403, // Forbidden
-  404, // Not Found
-  405, // Method Not Allowed
-  409, // Conflict
-  422, // Unprocessable Entity
-])
-
 // HTTP status codes that SHOULD be retried
 const RETRYABLE_STATUS_CODES = new Set([
   408, // Request Timeout
@@ -43,6 +32,13 @@ const RETRYABLE_STATUS_CODES = new Set([
   504, // Gateway Timeout
 ])
 
+/**
+ * Check if an HTTP status code is retryable
+ */
+function isRetryableStatusCode(statusCode: number): boolean {
+  return RETRYABLE_STATUS_CODES.has(statusCode)
+}
+
 interface SendMessageOptions {
   isRetry?: boolean
   messageId?: string
@@ -50,6 +46,7 @@ interface SendMessageOptions {
 
 export function useChatStream(projectId: string) {
   const [isStreaming, setIsStreaming] = useState(false)
+  const [isCancelled, setIsCancelled] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
   const [streamingPlaces, setStreamingPlaces] = useState<RecommendedPlace[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -74,7 +71,13 @@ export function useChatStream(projectId: string) {
         setLastFailedMessage(null)
       }
 
+      // Abort any previous request before starting a new one (prevents memory leaks)
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+
       setIsStreaming(true)
+      setIsCancelled(false)
       setStreamingContent('')
       setStreamingPlaces([])
       setError(null)
@@ -94,10 +97,12 @@ export function useChatStream(projectId: string) {
 
         if (!response.ok) {
           const errorData = await response.json()
-          const error = new Error(errorData.error?.message || '오류가 발생했습니다.')
-          // Attach status code to error for retry logic
-          ;(error as Error & { statusCode?: number }).statusCode = response.status
-          throw error
+          // Use HttpError for type-safe status code handling
+          throw new HttpError(
+            errorData.error?.message || '오류가 발생했습니다.',
+            response.status,
+            isRetryableStatusCode(response.status)
+          )
         }
 
         const reader = response.body?.getReader()
@@ -134,10 +139,11 @@ export function useChatStream(projectId: string) {
                   setError(chunk.content || '오류가 발생했습니다.')
                   setLastFailedMessage(message)
                 } else if (chunk.type === 'done') {
-                  // Refresh chat history
-                  await mutate(`/api/projects/${projectId}/chat/history`)
-                  // Refresh usage
-                  await mutate('/api/chat/usage')
+                  // Refresh chat history and usage in parallel
+                  await Promise.all([
+                    mutate(`/api/projects/${projectId}/chat/history`),
+                    mutate('/api/chat/usage'),
+                  ])
                   retryCountRef.current = 0
                   setLastFailedMessage(null)
                 }
@@ -148,14 +154,15 @@ export function useChatStream(projectId: string) {
           }
         }
       } catch (err) {
+        // Handle user cancellation explicitly
         if (err instanceof Error && err.name === 'AbortError') {
+          setIsCancelled(true)
           return
         }
 
-        // Check if error has a status code and determine retryability
-        const statusCode = (err as Error & { statusCode?: number }).statusCode
-        const isRetryable = statusCode
-          ? RETRYABLE_STATUS_CODES.has(statusCode) || !NON_RETRYABLE_STATUS_CODES.has(statusCode)
+        // Determine retryability using HttpError or fallback
+        const isRetryable = HttpError.isHttpError(err)
+          ? err.isRetryable
           : true // Network errors without status codes are retryable
 
         // Retry logic with exponential backoff (only for retryable errors)
@@ -182,6 +189,7 @@ export function useChatStream(projectId: string) {
   const abort = useCallback(() => {
     abortControllerRef.current?.abort()
     setIsStreaming(false)
+    setIsCancelled(true)
   }, [])
 
   const retry = useCallback(() => {
@@ -195,6 +203,7 @@ export function useChatStream(projectId: string) {
     setStreamingPlaces([])
     setError(null)
     setLastFailedMessage(null)
+    setIsCancelled(false)
   }, [])
 
   return {
@@ -203,6 +212,7 @@ export function useChatStream(projectId: string) {
     retry,
     reset,
     isStreaming,
+    isCancelled,
     streamingContent,
     streamingPlaces,
     error,

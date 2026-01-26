@@ -55,8 +55,30 @@ export async function POST(
     const MAX_DESCRIPTION_LENGTH = 1000
     const VALID_CATEGORIES = ['restaurant', 'cafe', 'attraction', 'shopping', 'accommodation', 'transport', 'etc']
 
+    /**
+     * Sanitize string by removing potentially harmful characters
+     * while preserving international characters (Korean, Chinese, Japanese, etc.)
+     *
+     * Note: Prisma ORM provides SQL injection protection, but we add extra
+     * sanitization as defense-in-depth.
+     */
+    const sanitizeString = (str: string, maxLength: number): string => {
+      return str
+        // Normalize Unicode to canonical form (NFC) - handles lookalike characters
+        .normalize('NFC')
+        // Remove null bytes and other control characters
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+        // Remove SQL special characters (minimal set to preserve apostrophes in names)
+        // Note: Prisma parameterizes queries, so this is extra precaution
+        .replace(/[;\\`]/g, '')
+        // Normalize whitespace
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, maxLength)
+    }
+
     // Validate and sanitize place name
-    const sanitizedName = place.name.trim().slice(0, MAX_NAME_LENGTH)
+    const sanitizedName = sanitizeString(place.name, MAX_NAME_LENGTH)
     if (sanitizedName.length === 0) {
       return Response.json(createChatError('INVALID_REQUEST'), { status: 400 })
     }
@@ -69,10 +91,10 @@ export async function POST(
       )
     }
 
-    // Sanitize optional fields
-    const sanitizedAddress = place.address?.trim().slice(0, MAX_ADDRESS_LENGTH)
-    const sanitizedDescription = place.description?.trim().slice(0, MAX_DESCRIPTION_LENGTH)
-    const sanitizedNameEn = place.name_en?.trim().slice(0, MAX_NAME_LENGTH)
+    // Sanitize optional fields using the same sanitization function
+    const sanitizedAddress = place.address ? sanitizeString(place.address, MAX_ADDRESS_LENGTH) : undefined
+    const sanitizedDescription = place.description ? sanitizeString(place.description, MAX_DESCRIPTION_LENGTH) : undefined
+    const sanitizedNameEn = place.name_en ? sanitizeString(place.name_en, MAX_NAME_LENGTH) : undefined
 
     // 4. Check for duplicate place by name (using sanitized name)
     const existingPlace = await prisma.place.findFirst({

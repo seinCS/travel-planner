@@ -318,6 +318,8 @@ model ChatMessage {
 
   @@index([sessionId])
   @@index([createdAt])
+  // Composite index for countUserMessagesInWindow query optimization
+  @@index([sessionId, role, createdAt])
 }
 
 model ChatUsage {

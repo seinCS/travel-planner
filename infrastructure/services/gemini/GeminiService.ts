@@ -2,8 +2,12 @@
  * Gemini Service
  *
  * Implementation of ILLMService using Google Gemini API.
+ *
+ * SECURITY: This module is server-only and will cause build errors if imported
+ * from client-side code. This prevents API key exposure.
  */
 
+import 'server-only'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { ILLMService, StreamChunk, ChatContext, RecommendedPlace } from '@/domain/interfaces/ILLMService'
 import { buildSystemPrompt, buildConversationContext } from './prompts/chatPrompt'
@@ -12,6 +16,25 @@ import { geminiCircuitBreaker } from '@/lib/circuit-breaker'
 import { cleanChatResponse } from '@/lib/chat-utils'
 
 const GEMINI_MODEL = 'gemini-2.0-flash'
+
+/**
+ * Validate API key at module load time (server startup)
+ * This catches configuration errors early rather than at first request
+ */
+function validateApiKeyOnStartup(): void {
+  // Only validate in production or when explicitly enabled
+  // Skip during build time (process.env is not fully available)
+  if (typeof window !== 'undefined') return
+
+  const apiKey = process.env.GEMINI_API_KEY
+  if (!apiKey && process.env.NODE_ENV === 'production') {
+    console.error('[GeminiService] CRITICAL: GEMINI_API_KEY is not configured in production')
+    // Don't throw to allow build to complete, but log critical error
+  }
+}
+
+// Run validation on module load
+validateApiKeyOnStartup()
 
 /**
  * Validate if an object is a valid place
@@ -79,6 +102,34 @@ function parsePlaces(text: string): { cleanText: string; places: RecommendedPlac
       cleanText = cleanText.replace(match[0], '')
     } catch (e) {
       logger.warn('Failed to parse place JSON (no backticks)', { error: String(e) })
+      // Still remove the malformed block
+      cleanText = cleanText.replace(match[0], '')
+    }
+  }
+
+  // 2.5. Fallback: Match :place without 'json' prefix (Gemini sometimes uses this)
+  const colonPlaceRegex = /:place\s*(\{[\s\S]*?\})/gi
+
+  while ((match = colonPlaceRegex.exec(text)) !== null) {
+    try {
+      const placeData = JSON.parse(match[1].trim())
+      if (isValidPlace(placeData)) {
+        const isDuplicate = places.some(p => p.name === placeData.name)
+        if (!isDuplicate) {
+          places.push({
+            name: placeData.name as string,
+            name_en: placeData.name_en as string | undefined,
+            address: placeData.address as string | undefined,
+            category: placeData.category as string,
+            description: placeData.description as string | undefined,
+            latitude: placeData.latitude as number | undefined,
+            longitude: placeData.longitude as number | undefined,
+          })
+        }
+      }
+      cleanText = cleanText.replace(match[0], '')
+    } catch (e) {
+      logger.warn('Failed to parse place JSON (:place format)', { error: String(e) })
       // Still remove the malformed block
       cleanText = cleanText.replace(match[0], '')
     }
@@ -185,7 +236,7 @@ class GeminiService implements ILLMService {
             },
           ],
           generationConfig: {
-            maxOutputTokens: 2048,
+            maxOutputTokens: 8192,
             temperature: 0.7,
           },
         })
@@ -219,6 +270,25 @@ class GeminiService implements ILLMService {
             }
 
             lastYieldedLength = cleanText.length
+          }
+        }
+
+        // Check for finish reason (safety, max tokens, etc.)
+        const candidates = chunk.candidates
+        if (candidates?.[0]?.finishReason) {
+          const finishReason = candidates[0].finishReason
+          logger.info('Gemini stream finish reason', {
+            finishReason,
+            accumulatedLength: accumulatedText.length,
+            projectId: context.projectId,
+          })
+
+          // If stopped for safety or other reasons, log it
+          if (finishReason !== 'STOP') {
+            logger.warn('Gemini stream ended unexpectedly', {
+              finishReason,
+              safetyRatings: candidates[0].safetyRatings,
+            })
           }
         }
       }

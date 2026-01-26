@@ -2,8 +2,32 @@
  * Circuit Breaker
  *
  * Local circuit breaker implementation for serverless environment.
- * Note: In serverless, state is not shared between instances.
- * For production, consider using a database-backed implementation.
+ *
+ * IMPORTANT: Serverless Limitations
+ * ================================
+ * This is an in-memory circuit breaker. In serverless environments (Vercel, AWS Lambda),
+ * each function instance maintains its own state. This means:
+ *
+ * 1. Circuit state is NOT shared between instances
+ *    - Instance A may have circuit open while Instance B has it closed
+ *    - This can lead to inconsistent behavior under load
+ *
+ * 2. State is lost on cold starts
+ *    - After idle period, new instances start with fresh (closed) circuits
+ *    - Failed service may receive traffic again
+ *
+ * 3. Acceptable for:
+ *    - Development/testing environments
+ *    - Low-traffic applications
+ *    - Rate limiting within a single request lifecycle
+ *
+ * 4. For production high-traffic scenarios, consider:
+ *    - Redis-backed circuit breaker (using Upstash Redis)
+ *    - Database-backed state (using Supabase/Prisma)
+ *    - External service (like AWS App Mesh or Istio)
+ *
+ * Current implementation provides basic protection against cascading failures
+ * within individual serverless instances, which is sufficient for moderate traffic.
  */
 
 import { logger } from './logger'
@@ -26,6 +50,7 @@ interface CircuitBreakerState {
 }
 
 // In-memory state (per serverless instance)
+// See documentation above for serverless limitations
 const circuits = new Map<string, CircuitBreakerState>()
 
 function getState(name: string): CircuitBreakerState {

@@ -15,6 +15,62 @@ import {
 } from '@/types/realtime'
 
 /**
+ * Retry configuration for subscription
+ */
+const RETRY_CONFIG = {
+  maxRetries: 3,
+  baseDelayMs: 1000,
+  maxDelayMs: 5000,
+  /** Jitter factor (0-1) to prevent thundering herd */
+  jitterFactor: 0.3,
+}
+
+/**
+ * Error types that are safe to retry
+ * - CHANNEL_ERROR: Temporary channel issues
+ * - TIMED_OUT: Network timeouts
+ * - Network errors: Connection issues
+ *
+ * Non-retryable errors:
+ * - Authentication errors (401, 403)
+ * - Invalid configuration
+ * - Resource not found (404)
+ */
+const RETRYABLE_ERROR_PATTERNS = [
+  'channel_error',
+  'timed_out',
+  'timeout',
+  'network',
+  'connection',
+  'ECONNRESET',
+  'ENOTFOUND',
+  'ETIMEDOUT',
+]
+
+/**
+ * Check if an error is retryable
+ */
+function isRetryableError(error: Error): boolean {
+  const errorMessage = error.message.toLowerCase()
+  return RETRYABLE_ERROR_PATTERNS.some(pattern =>
+    errorMessage.includes(pattern.toLowerCase())
+  )
+}
+
+/**
+ * Calculate delay with exponential backoff and jitter
+ */
+function calculateRetryDelay(attempt: number): number {
+  const baseDelay = Math.min(
+    RETRY_CONFIG.baseDelayMs * Math.pow(2, attempt),
+    RETRY_CONFIG.maxDelayMs
+  )
+  // Add jitter to prevent thundering herd
+  const jitter = baseDelay * RETRY_CONFIG.jitterFactor * Math.random()
+  return Math.floor(baseDelay + jitter)
+}
+
+/**
  * Type guard for PresenceState validation
  * Validates that an unknown object conforms to PresenceState interface
  */
@@ -86,7 +142,10 @@ export class ProjectRealtimeClient {
   }
 
   /**
-   * Subscribe to the project channel for real-time updates
+   * Subscribe to the project channel for real-time updates with retry logic
+   *
+   * Implements exponential backoff with jitter for retryable errors only.
+   * Non-retryable errors (auth, config) will fail immediately.
    */
   async subscribe(): Promise<void> {
     if (this.isSubscribed) {
@@ -94,6 +153,51 @@ export class ProjectRealtimeClient {
       return
     }
 
+    let lastError: Error | null = null
+
+    for (let attempt = 0; attempt < RETRY_CONFIG.maxRetries; attempt++) {
+      try {
+        await this.subscribeOnce()
+        return // 성공
+      } catch (error) {
+        lastError = error as Error
+
+        // Check if error is retryable
+        if (!isRetryableError(lastError)) {
+          console.error('[RealtimeClient] Non-retryable error, failing immediately:', {
+            projectId: this.projectId,
+            error: lastError.message,
+          })
+          throw lastError
+        }
+
+        console.warn(`[RealtimeClient] Attempt ${attempt + 1}/${RETRY_CONFIG.maxRetries} failed:`, {
+          projectId: this.projectId,
+          error: lastError.message,
+          retryable: true,
+        })
+
+        if (attempt < RETRY_CONFIG.maxRetries - 1) {
+          const delay = calculateRetryDelay(attempt)
+          console.log(`[RealtimeClient] Retrying in ${delay}ms...`)
+          await new Promise(r => setTimeout(r, delay))
+        }
+      }
+    }
+
+    // 모든 재시도 실패
+    console.error('[RealtimeClient] All retry attempts failed:', {
+      projectId: this.projectId,
+      error: lastError?.message,
+      totalAttempts: RETRY_CONFIG.maxRetries,
+    })
+    throw lastError
+  }
+
+  /**
+   * Internal method to perform a single subscription attempt
+   */
+  private async subscribeOnce(): Promise<void> {
     const channelName = `project:${this.projectId}`
     this.channel = this.supabase.channel(channelName, {
       config: {
@@ -146,11 +250,17 @@ export class ProjectRealtimeClient {
           }
           resolve()
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('[RealtimeClient] Channel subscription error')
+          console.error('[RealtimeClient] Channel subscription error:', {
+            projectId: this.projectId,
+            channelName,
+          })
           this.isSubscribed = false
           reject(new Error('Channel subscription error'))
         } else if (status === 'TIMED_OUT') {
-          console.error('[RealtimeClient] Channel subscription timed out')
+          console.error('[RealtimeClient] Channel subscription timed out:', {
+            projectId: this.projectId,
+            channelName,
+          })
           this.isSubscribed = false
           reject(new Error('Channel subscription timed out'))
         }
@@ -176,6 +286,17 @@ export class ProjectRealtimeClient {
 
   /**
    * Register a callback for sync events
+   *
+   * Uses a Set internally to prevent duplicate callbacks.
+   * Each call returns an unsubscribe function that removes the specific callback.
+   *
+   * Usage pattern (React):
+   * ```
+   * useEffect(() => {
+   *   const unsubscribe = client.onSync(handleSync)
+   *   return unsubscribe // Cleanup removes callback before re-adding on re-render
+   * }, [client])
+   * ```
    */
   onSync(callback: SyncCallback): () => void {
     this.syncCallbacks.add(callback)

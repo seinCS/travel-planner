@@ -4,53 +4,37 @@
  * Real-time presence tracking hook for showing online collaborators.
  * Uses Supabase Realtime presence feature to track who is currently
  * viewing a project.
+ *
+ * Uses shared RealtimeClient from RealtimeContext to avoid duplicate subscriptions.
  */
 
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
-import { ProjectRealtimeClient } from '@/infrastructure/services/realtime'
+import { useRealtimeClient } from '@/contexts/RealtimeContext'
 import type { PresenceState } from '@/types/realtime'
 
 export function usePresence(projectId: string | null) {
   const { data: session } = useSession()
+  const { client, isConnected } = useRealtimeClient()
   const [members, setMembers] = useState<PresenceState[]>([])
-  const [client, setClient] = useState<ProjectRealtimeClient | null>(null)
 
   useEffect(() => {
-    if (!projectId || !session?.user) return
+    if (!client || !projectId) return
 
-    const realtimeClient = new ProjectRealtimeClient(projectId)
-
-    // Presence 상태 변경 리스너
-    realtimeClient.onPresence((presenceMembers) => {
+    // Presence 상태 변경 리스너 등록
+    const unsubscribe = client.onPresence((presenceMembers) => {
       setMembers(presenceMembers)
     })
 
-    // 현재 사용자 Presence 등록
-    const userPresence = {
-      id: session.user.id,
-      name: session.user.name || 'Anonymous',
-      email: session.user.email || '',
-      image: session.user.image || null,
-    }
-
-    realtimeClient.trackPresence(userPresence)
-    realtimeClient.subscribe()
-    setClient(realtimeClient)
-
     return () => {
-      // Fire-and-forget cleanup with error handling
-      realtimeClient.unsubscribe().catch((error) => {
-        console.warn('[usePresence] Cleanup error (safe to ignore):', error)
-      })
-      setClient(null)
+      unsubscribe()
       setMembers([])
     }
-  }, [projectId, session?.user])
+  }, [client, projectId])
 
   return {
     members,
     currentUserId: session?.user?.id,
-    isConnected: !!client,
+    isConnected,
   }
 }
