@@ -2,6 +2,11 @@
  * Prompt Injection Filter
  *
  * Service to detect and prevent prompt injection attacks.
+ * Includes protection against:
+ * - Direct injection attempts
+ * - L33t speak variations
+ * - Unicode obfuscation
+ * - Base64 encoded payloads
  */
 
 import { logger } from '@/lib/logger'
@@ -16,11 +21,17 @@ const INJECTION_PATTERNS: Array<{ pattern: RegExp; name: string }> = [
   { pattern: /reveal.*instruction/i, name: 'reveal_instruction' },
   { pattern: /show.*hidden/i, name: 'show_hidden' },
 
+  // L33t speak variations for system/prompt
+  { pattern: /syst[e3]m/i, name: 'leet_system' },
+  { pattern: /pr[o0]mpt/i, name: 'leet_prompt' },
+  { pattern: /s[yi1]st[e3]m/i, name: 'leet_system_alt' },
+
   // Instruction override attempts
   { pattern: /이전.*지시.*무시/i, name: 'ignore_prev_ko' },
   { pattern: /ignore.*previous.*instruction/i, name: 'ignore_prev_en' },
   { pattern: /forget.*everything/i, name: 'forget_everything' },
   { pattern: /disregard.*above/i, name: 'disregard_above' },
+  { pattern: /이전.*무시/i, name: 'ignore_prev_ko_short' },
 
   // Role manipulation
   { pattern: /역할극/i, name: 'roleplay_ko' },
@@ -34,20 +45,29 @@ const INJECTION_PATTERNS: Array<{ pattern: RegExp; name: string }> = [
   { pattern: /jailbreak/i, name: 'jailbreak' },
   { pattern: /developer.*mode/i, name: 'developer_mode' },
   { pattern: /bypass.*filter/i, name: 'bypass_filter' },
+  { pattern: /j[a4][i1]lbr[e3][a4]k/i, name: 'leet_jailbreak' },
 
   // Special character obfuscation
   { pattern: /\u200B/, name: 'zero_width_space' },
   { pattern: /\u200C/, name: 'zero_width_non_joiner' },
   { pattern: /\u200D/, name: 'zero_width_joiner' },
   { pattern: /\uFEFF/, name: 'bom' },
+  // Additional invisible characters
+  { pattern: /\u00AD/, name: 'soft_hyphen' },
+  { pattern: /\u2060/, name: 'word_joiner' },
+  { pattern: /\u180E/, name: 'mongolian_vowel_separator' },
 
-  // Base64 encoded payloads (actual base64 strings, not just mentions)
-  // Matches strings that look like base64-encoded data (40+ chars of base64 alphabet)
-  { pattern: /(?:[A-Za-z0-9+/]{4}){10,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?/, name: 'base64_payload' },
+  // Base64 encoded payloads (lowered threshold from 40 to 20 chars)
+  // Matches strings that look like base64-encoded data (20+ chars of base64 alphabet)
+  { pattern: /(?:[A-Za-z0-9+/]{4}){5,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?/, name: 'base64_payload' },
 
   // Delimiter manipulation
   { pattern: /```.*system/i, name: 'code_block_system' },
   { pattern: /<\|.*\|>/i, name: 'special_delimiter' },
+
+  // XML/HTML injection attempts
+  { pattern: /<system>/i, name: 'xml_system_tag' },
+  { pattern: /<instruction>/i, name: 'xml_instruction_tag' },
 ]
 
 /**
@@ -85,9 +105,13 @@ export class PromptInjectionFilter {
       }
     }
 
-    // Check against injection patterns
+    // Normalize Unicode to catch obfuscation attempts (NFKC normalization)
+    // This converts lookalike characters to their canonical forms
+    const normalizedMessage = message.normalize('NFKC')
+
+    // Check against injection patterns on both original and normalized
     for (const { pattern, name } of INJECTION_PATTERNS) {
-      if (pattern.test(message)) {
+      if (pattern.test(message) || pattern.test(normalizedMessage)) {
         logger.warn('Prompt injection detected', { pattern: name })
         return {
           isClean: false,
@@ -105,8 +129,12 @@ export class PromptInjectionFilter {
    */
   sanitize(message: string): string {
     return message
-      // Remove zero-width characters
-      .replace(/[\u200B\u200C\u200D\uFEFF]/g, '')
+      // Normalize Unicode (NFKC) to standardize characters
+      .normalize('NFKC')
+      // Remove zero-width and invisible characters
+      .replace(/[\u200B\u200C\u200D\uFEFF\u00AD\u2060\u180E]/g, '')
+      // Remove control characters except newlines and tabs
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
       // Normalize whitespace
       .replace(/\s+/g, ' ')
       // Trim

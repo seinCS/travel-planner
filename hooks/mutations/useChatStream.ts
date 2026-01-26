@@ -74,6 +74,11 @@ export function useChatStream(projectId: string) {
         setLastFailedMessage(null)
       }
 
+      // Abort any previous request before starting a new one (prevents memory leaks)
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+
       setIsStreaming(true)
       setStreamingContent('')
       setStreamingPlaces([])

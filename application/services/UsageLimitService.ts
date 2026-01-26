@@ -2,14 +2,33 @@
  * Usage Limit Service
  *
  * Service for managing chat usage limits.
+ *
+ * Timezone Handling
+ * =================
+ * This service uses KST (Korea Standard Time, UTC+9) for daily limit resets.
+ *
+ * Design decision:
+ * - Primary user base is in Korea, so KST provides intuitive "daily" behavior
+ * - Daily limits reset at midnight KST (00:00 KST = 15:00 UTC previous day)
+ * - All timestamps are stored in UTC in the database for consistency
+ *
+ * For international expansion, consider:
+ * - Storing user's timezone preference in user profile
+ * - Using user's local timezone for reset calculations
+ * - Or switching to UTC-based 24-hour rolling windows instead of fixed daily resets
+ *
+ * Current implementation is suitable for Korean-focused service.
  */
 
 import { prisma } from '@/lib/db'
 import type { IUsageRepository } from '@/domain/interfaces/IUsageRepository'
 import { logger } from '@/lib/logger'
 
+/** User's daily message limit */
 const DAILY_LIMIT = 50
+/** Messages per minute rate limit */
 const MINUTE_LIMIT = 10
+/** Global daily limit across all users (cost control) */
 const GLOBAL_DAILY_LIMIT = 10000
 
 export interface LimitCheckResult {

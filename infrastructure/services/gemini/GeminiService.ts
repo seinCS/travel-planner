@@ -2,8 +2,12 @@
  * Gemini Service
  *
  * Implementation of ILLMService using Google Gemini API.
+ *
+ * SECURITY: This module is server-only and will cause build errors if imported
+ * from client-side code. This prevents API key exposure.
  */
 
+import 'server-only'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { ILLMService, StreamChunk, ChatContext, RecommendedPlace } from '@/domain/interfaces/ILLMService'
 import { buildSystemPrompt, buildConversationContext } from './prompts/chatPrompt'

@@ -99,6 +99,45 @@ export class SendMessageUseCase {
       const places: RecommendedPlace[] = []
       let streamCompleted = false
       let messageSaved = false
+      // Mutex-like flag to prevent race condition in message saving
+      let isSaving = false
+
+      // Helper function to save message atomically
+      const saveMessageIfNeeded = async (context: string): Promise<boolean> => {
+        // Atomic check-and-set to prevent race condition
+        if (isSaving || messageSaved) {
+          return false
+        }
+        isSaving = true
+
+        if (!(fullContent || places.length > 0)) {
+          isSaving = false
+          return false
+        }
+
+        try {
+          const uniquePlaces = Array.from(
+            new Map(places.map(p => [p.name, p])).values()
+          )
+          await chatRepo.createMessage({
+            sessionId,
+            role: 'assistant',
+            content: fullContent || '(응답 중단됨)',
+            places: uniquePlaces.length > 0 ? uniquePlaces : undefined,
+          })
+          messageSaved = true
+          logger.chat(`message_saved_${context}`, { sessionId })
+          return true
+        } catch (saveError) {
+          logger.error(`Failed to save message (${context})`, {
+            error: saveError instanceof Error ? saveError.message : String(saveError),
+            sessionId,
+          })
+          return false
+        } finally {
+          isSaving = false
+        }
+      }
 
       try {
         const stream = llm.streamChat(sanitizedMessage, {
@@ -120,24 +159,7 @@ export class SendMessageUseCase {
 
           if (chunk.type === 'done') {
             streamCompleted = true
-            // Save assistant message when streaming is complete
-            if (fullContent || places.length > 0) {
-              // De-duplicate places by name before saving to DB
-              const uniquePlaces = Array.from(
-                new Map(places.map(p => [p.name, p])).values()
-              )
-              await chatRepo.createMessage({
-                sessionId,
-                role: 'assistant',
-                content: fullContent,
-                places: uniquePlaces.length > 0 ? uniquePlaces : undefined,
-              })
-              messageSaved = true
-              logger.chat('message_saved', {
-                sessionId,
-                messageId: chunk.messageId,
-              })
-            }
+            await saveMessageIfNeeded('stream_done')
           }
         }
       } catch (error) {
@@ -151,24 +173,8 @@ export class SendMessageUseCase {
         }
       } finally {
         // Ensure message is saved even if stream is aborted
-        if (!streamCompleted && !messageSaved && (fullContent || places.length > 0)) {
-          try {
-            const uniquePlaces = Array.from(
-              new Map(places.map(p => [p.name, p])).values()
-            )
-            await chatRepo.createMessage({
-              sessionId,
-              role: 'assistant',
-              content: fullContent || '(응답 중단됨)',
-              places: uniquePlaces.length > 0 ? uniquePlaces : undefined,
-            })
-            logger.chat('message_saved_on_abort', { sessionId })
-          } catch (saveError) {
-            logger.error('Failed to save message on abort', {
-              error: saveError instanceof Error ? saveError.message : String(saveError),
-              sessionId,
-            })
-          }
+        if (!streamCompleted) {
+          await saveMessageIfNeeded('stream_abort')
         }
       }
     }

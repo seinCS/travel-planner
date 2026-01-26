@@ -63,11 +63,20 @@ export async function POST(
       return Response.json(createChatError('INVALID_REQUEST'), { status: 400 })
     }
 
-    // 5. Get existing places for context
-    const existingPlaces = await prisma.place.findMany({
-      where: { projectId },
-      select: { name: true, category: true },
-    })
+    // 5. Get existing places for context (fail gracefully with empty array)
+    let existingPlaces: Array<{ name: string; category: string }> = []
+    try {
+      existingPlaces = await prisma.place.findMany({
+        where: { projectId },
+        select: { name: true, category: true },
+      })
+    } catch (dbError) {
+      logger.warn('Failed to fetch existing places, continuing with empty list', {
+        error: dbError instanceof Error ? dbError.message : String(dbError),
+        projectId,
+      })
+      // Continue with empty array - not critical for chat functionality
+    }
 
     // 6. Execute use case
     const useCase = new SendMessageUseCase(chatRepository, geminiService, usageRepository)
