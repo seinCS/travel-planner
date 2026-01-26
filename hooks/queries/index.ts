@@ -14,3 +14,7 @@ export * from './usePlaceSearch'
 // Itinerary-related hooks
 export * from './useItinerary'
 export * from './useMembers'
+
+// Chat-related hooks
+export * from './useChatHistory'
+export * from './useChatUsage'

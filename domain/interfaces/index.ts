@@ -18,3 +18,8 @@ export * from './IAccommodationRepository'
 // Service interfaces
 export * from './IAnalysisService'
 export * from './IGeocodingService'
+
+// Chat-related interfaces
+export * from './IChatRepository'
+export * from './ILLMService'
+export * from './IUsageRepository'
