@@ -19,6 +19,7 @@ import { createChatError, CHAT_ERRORS } from '@/lib/constants/chat-errors'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60 // Vercel Pro: 최대 60초
 
 interface ChatRequestBody {
   message: string

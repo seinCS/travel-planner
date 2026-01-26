@@ -20,9 +20,18 @@ export function cleanChatResponse(text: string): string {
   // 2. Remove json:place with COMPLETE JSON (has closing brace)
   cleaned = cleaned.replace(/json:place\s*\{[\s\S]*?\}\s*/gi, '')
 
+  // 2.5. Remove :place with COMPLETE JSON (Gemini sometimes omits 'json' prefix)
+  cleaned = cleaned.replace(/:place\s*\{[\s\S]*?\}\s*/gi, '')
+
   // 3. Remove incomplete json:place blocks - match until double newline (paragraph break)
   // This preserves text after the incomplete JSON block
   cleaned = cleaned.replace(/json:place\s*\{[^}]*?(?=\n\n)/gi, '')
+
+  // 3.5. Remove incomplete :place blocks (no 'json' prefix)
+  cleaned = cleaned.replace(/:place\s*\{[^}]*?(?=\n\n)/gi, '')
+
+  // 3.6. Remove standalone :place without JSON (just ":place" on its own line)
+  cleaned = cleaned.replace(/^:place\s*$/gim, '')
 
   // 4. Remove generic ```json blocks
   cleaned = cleaned.replace(/```json\s*[\s\S]*?```/g, '')
@@ -41,6 +50,26 @@ export function cleanChatResponse(text: string): string {
     /\{\s*"name"\s*:\s*"[^"]*"[^}]*?(?=\n\n)/g,
     ''
   )
+
+  // 7.5. Remove incomplete JSON at end of text - simple approach
+  // Find last occurrence of JSON-like start and check if it has closing brace
+  const lastJsonStart = cleaned.lastIndexOf('{"name"')
+  if (lastJsonStart !== -1) {
+    const afterStart = cleaned.slice(lastJsonStart)
+    // If no closing brace found, remove from that point
+    if (!afterStart.includes('}')) {
+      cleaned = cleaned.slice(0, lastJsonStart)
+    }
+  }
+
+  // 7.6. Also check for {"name_en" pattern (sometimes Gemini starts with different field)
+  const lastJsonStart2 = cleaned.lastIndexOf('{"name_en"')
+  if (lastJsonStart2 !== -1) {
+    const afterStart2 = cleaned.slice(lastJsonStart2)
+    if (!afterStart2.includes('}')) {
+      cleaned = cleaned.slice(0, lastJsonStart2)
+    }
+  }
 
   // 8. Remove orphaned backticks
   cleaned = cleaned.replace(/```\w*\n?/g, '')

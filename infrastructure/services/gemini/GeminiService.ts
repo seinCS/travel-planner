@@ -84,6 +84,34 @@ function parsePlaces(text: string): { cleanText: string; places: RecommendedPlac
     }
   }
 
+  // 2.5. Fallback: Match :place without 'json' prefix (Gemini sometimes uses this)
+  const colonPlaceRegex = /:place\s*(\{[\s\S]*?\})/gi
+
+  while ((match = colonPlaceRegex.exec(text)) !== null) {
+    try {
+      const placeData = JSON.parse(match[1].trim())
+      if (isValidPlace(placeData)) {
+        const isDuplicate = places.some(p => p.name === placeData.name)
+        if (!isDuplicate) {
+          places.push({
+            name: placeData.name as string,
+            name_en: placeData.name_en as string | undefined,
+            address: placeData.address as string | undefined,
+            category: placeData.category as string,
+            description: placeData.description as string | undefined,
+            latitude: placeData.latitude as number | undefined,
+            longitude: placeData.longitude as number | undefined,
+          })
+        }
+      }
+      cleanText = cleanText.replace(match[0], '')
+    } catch (e) {
+      logger.warn('Failed to parse place JSON (:place format)', { error: String(e) })
+      // Still remove the malformed block
+      cleanText = cleanText.replace(match[0], '')
+    }
+  }
+
   // 3. Fallback: Match generic ```json blocks that contain place-like data
   const genericJsonRegex = /```json\s*([\s\S]*?)```/g
 
@@ -185,7 +213,7 @@ class GeminiService implements ILLMService {
             },
           ],
           generationConfig: {
-            maxOutputTokens: 2048,
+            maxOutputTokens: 8192,
             temperature: 0.7,
           },
         })
@@ -219,6 +247,25 @@ class GeminiService implements ILLMService {
             }
 
             lastYieldedLength = cleanText.length
+          }
+        }
+
+        // Check for finish reason (safety, max tokens, etc.)
+        const candidates = chunk.candidates
+        if (candidates?.[0]?.finishReason) {
+          const finishReason = candidates[0].finishReason
+          logger.info('Gemini stream finish reason', {
+            finishReason,
+            accumulatedLength: accumulatedText.length,
+            projectId: context.projectId,
+          })
+
+          // If stopped for safety or other reasons, log it
+          if (finishReason !== 'STOP') {
+            logger.warn('Gemini stream ended unexpectedly', {
+              finishReason,
+              safetyRatings: candidates[0].safetyRatings,
+            })
           }
         }
       }

@@ -15,6 +15,15 @@ import {
 } from '@/types/realtime'
 
 /**
+ * Retry configuration for subscription
+ */
+const RETRY_CONFIG = {
+  maxRetries: 3,
+  baseDelayMs: 1000,
+  maxDelayMs: 5000,
+}
+
+/**
  * Type guard for PresenceState validation
  * Validates that an unknown object conforms to PresenceState interface
  */
@@ -86,7 +95,7 @@ export class ProjectRealtimeClient {
   }
 
   /**
-   * Subscribe to the project channel for real-time updates
+   * Subscribe to the project channel for real-time updates with retry logic
    */
   async subscribe(): Promise<void> {
     if (this.isSubscribed) {
@@ -94,6 +103,41 @@ export class ProjectRealtimeClient {
       return
     }
 
+    let lastError: Error | null = null
+
+    for (let attempt = 0; attempt < RETRY_CONFIG.maxRetries; attempt++) {
+      try {
+        await this.subscribeOnce()
+        return // 성공
+      } catch (error) {
+        lastError = error as Error
+        console.warn(`[RealtimeClient] Attempt ${attempt + 1}/${RETRY_CONFIG.maxRetries} failed:`, {
+          projectId: this.projectId,
+          error: lastError.message,
+        })
+
+        if (attempt < RETRY_CONFIG.maxRetries - 1) {
+          const delay = Math.min(
+            RETRY_CONFIG.baseDelayMs * Math.pow(2, attempt),
+            RETRY_CONFIG.maxDelayMs
+          )
+          await new Promise(r => setTimeout(r, delay))
+        }
+      }
+    }
+
+    // 모든 재시도 실패
+    console.error('[RealtimeClient] All retry attempts failed:', {
+      projectId: this.projectId,
+      error: lastError?.message,
+    })
+    throw lastError
+  }
+
+  /**
+   * Internal method to perform a single subscription attempt
+   */
+  private async subscribeOnce(): Promise<void> {
     const channelName = `project:${this.projectId}`
     this.channel = this.supabase.channel(channelName, {
       config: {
@@ -146,11 +190,17 @@ export class ProjectRealtimeClient {
           }
           resolve()
         } else if (status === 'CHANNEL_ERROR') {
-          console.error('[RealtimeClient] Channel subscription error')
+          console.error('[RealtimeClient] Channel subscription error:', {
+            projectId: this.projectId,
+            channelName,
+          })
           this.isSubscribed = false
           reject(new Error('Channel subscription error'))
         } else if (status === 'TIMED_OUT') {
-          console.error('[RealtimeClient] Channel subscription timed out')
+          console.error('[RealtimeClient] Channel subscription timed out:', {
+            projectId: this.projectId,
+            channelName,
+          })
           this.isSubscribed = false
           reject(new Error('Channel subscription timed out'))
         }

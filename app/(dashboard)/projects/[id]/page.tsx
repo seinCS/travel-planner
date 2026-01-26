@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { useRealtimeSync } from '@/hooks/realtime'
 import { PresenceIndicator } from '@/components/realtime'
+import { RealtimeProvider } from '@/contexts/RealtimeContext'
 
 // Dynamic imports for heavy components
 const GoogleMap = dynamic(() => import('@/components/map/GoogleMap').then(mod => mod.GoogleMap), {
@@ -66,6 +67,20 @@ interface ProjectDetailProps {
 
 export default function ProjectDetailPage({ params }: ProjectDetailProps) {
   const { id } = use(params)
+
+  return (
+    <RealtimeProvider projectId={id}>
+      <ProjectContent projectId={id} />
+    </RealtimeProvider>
+  )
+}
+
+interface ProjectContentProps {
+  projectId: string
+}
+
+function ProjectContent({ projectId }: ProjectContentProps) {
+  const id = projectId
   const router = useRouter()
   const isMobile = useIsMobile()
   const { data: session } = useSession()
