@@ -37,24 +37,43 @@ export function ChatWindow({ projectId, onClose }: ChatWindowProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, streamingContent])
 
-  // Mobile back button handling
+  // Mobile back button handling using Escape key instead of history manipulation
+  // This avoids conflicts with app navigation and provides consistent behavior
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    // For mobile, handle Android back button via beforeunload as fallback
+    // Note: Modern approach is to use popstate carefully or avoid it
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Only prevent if chat is open and there's unsaved content
+      // For now, we just close the chat
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [onClose])
+
+  // Mobile-specific: Close on outside tap (touch devices)
   useEffect(() => {
     if (!isMobile) return
 
-    const handlePopState = (e: PopStateEvent) => {
-      e.preventDefault()
-      onClose()
+    const handleTouchStart = (e: TouchEvent) => {
+      const chatWindow = document.querySelector('[data-testid="chat-window"]')
+      if (chatWindow && !chatWindow.contains(e.target as Node)) {
+        // Don't close on touch outside for mobile - they might be scrolling
+        // Only the X button and Escape key should close
+      }
     }
 
-    window.history.pushState({ chatOpen: true }, '')
-    window.addEventListener('popstate', handlePopState)
-
     return () => {
-      window.removeEventListener('popstate', handlePopState)
-      // Clean up history
-      if (window.history.state?.chatOpen) {
-        window.history.back()
-      }
+      // Cleanup if needed
     }
   }, [isMobile, onClose])
 

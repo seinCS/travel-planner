@@ -41,7 +41,7 @@ export async function POST(
       return Response.json(createChatError('NO_ACCESS'), { status: 403 })
     }
 
-    // 3. Parse request body
+    // 3. Parse and validate request body
     const body: AddPlaceRequestBody = await request.json()
     const { place } = body
 
@@ -49,11 +49,36 @@ export async function POST(
       return Response.json(createChatError('INVALID_REQUEST'), { status: 400 })
     }
 
-    // 4. Check for duplicate place by name
+    // Input validation and sanitization
+    const MAX_NAME_LENGTH = 200
+    const MAX_ADDRESS_LENGTH = 500
+    const MAX_DESCRIPTION_LENGTH = 1000
+    const VALID_CATEGORIES = ['restaurant', 'cafe', 'attraction', 'shopping', 'accommodation', 'transport', 'etc']
+
+    // Validate and sanitize place name
+    const sanitizedName = place.name.trim().slice(0, MAX_NAME_LENGTH)
+    if (sanitizedName.length === 0) {
+      return Response.json(createChatError('INVALID_REQUEST'), { status: 400 })
+    }
+
+    // Validate category
+    if (!VALID_CATEGORIES.includes(place.category)) {
+      return Response.json(
+        { error: { code: 'INVALID_CATEGORY', message: '유효하지 않은 카테고리입니다.' } },
+        { status: 400 }
+      )
+    }
+
+    // Sanitize optional fields
+    const sanitizedAddress = place.address?.trim().slice(0, MAX_ADDRESS_LENGTH)
+    const sanitizedDescription = place.description?.trim().slice(0, MAX_DESCRIPTION_LENGTH)
+    const sanitizedNameEn = place.name_en?.trim().slice(0, MAX_NAME_LENGTH)
+
+    // 4. Check for duplicate place by name (using sanitized name)
     const existingPlace = await prisma.place.findFirst({
       where: {
         projectId,
-        name: place.name,
+        name: sanitizedName,
       },
     })
 
@@ -67,14 +92,14 @@ export async function POST(
     // 5. Geocode the place if coordinates are not provided
     let latitude = place.latitude
     let longitude = place.longitude
-    let formattedAddress = place.address
+    let formattedAddress = sanitizedAddress
     let googlePlaceId: string | undefined
     let googleMapsUrl: string | undefined
 
     if (!latitude || !longitude) {
       const geocodeResult = await geocodePlaceWithFallback(
-        place.name,
-        place.name_en || null,
+        sanitizedName,
+        sanitizedNameEn || null,
         accessResult.project.destination,
         accessResult.project.country || undefined
       )
@@ -93,13 +118,13 @@ export async function POST(
       }
     }
 
-    // 6. Create the place
+    // 6. Create the place with sanitized values
     const newPlace = await prisma.place.create({
       data: {
         projectId,
-        name: place.name,
+        name: sanitizedName,
         category: place.category,
-        comment: place.description,
+        comment: sanitizedDescription,
         latitude: latitude!,
         longitude: longitude!,
         status: 'auto',

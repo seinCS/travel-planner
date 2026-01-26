@@ -89,12 +89,16 @@ export class SendMessageUseCase {
       content: msg.content,
     }))
 
-    // 7. Create streaming response generator
+    // 7. Create streaming response generator with proper resource cleanup
     const chatRepo = this.chatRepository
     const llm = this.llmService
+    const sessionId = session.id
+
     async function* streamWithSave(): AsyncGenerator<StreamChunk, void, unknown> {
       let fullContent = ''
       const places: RecommendedPlace[] = []
+      let streamCompleted = false
+      let messageSaved = false
 
       try {
         const stream = llm.streamChat(sanitizedMessage, {
@@ -115,6 +119,7 @@ export class SendMessageUseCase {
           yield chunk
 
           if (chunk.type === 'done') {
+            streamCompleted = true
             // Save assistant message when streaming is complete
             if (fullContent || places.length > 0) {
               // De-duplicate places by name before saving to DB
@@ -122,13 +127,14 @@ export class SendMessageUseCase {
                 new Map(places.map(p => [p.name, p])).values()
               )
               await chatRepo.createMessage({
-                sessionId: session.id,
+                sessionId,
                 role: 'assistant',
                 content: fullContent,
                 places: uniquePlaces.length > 0 ? uniquePlaces : undefined,
               })
+              messageSaved = true
               logger.chat('message_saved', {
-                sessionId: session.id,
+                sessionId,
                 messageId: chunk.messageId,
               })
             }
@@ -137,11 +143,32 @@ export class SendMessageUseCase {
       } catch (error) {
         logger.error('Stream error in SendMessageUseCase', {
           error: error instanceof Error ? error.message : String(error),
-          sessionId: session.id,
+          sessionId,
         })
         yield {
           type: 'error',
           content: 'AI 응답 중 오류가 발생했습니다.',
+        }
+      } finally {
+        // Ensure message is saved even if stream is aborted
+        if (!streamCompleted && !messageSaved && (fullContent || places.length > 0)) {
+          try {
+            const uniquePlaces = Array.from(
+              new Map(places.map(p => [p.name, p])).values()
+            )
+            await chatRepo.createMessage({
+              sessionId,
+              role: 'assistant',
+              content: fullContent || '(응답 중단됨)',
+              places: uniquePlaces.length > 0 ? uniquePlaces : undefined,
+            })
+            logger.chat('message_saved_on_abort', { sessionId })
+          } catch (saveError) {
+            logger.error('Failed to save message on abort', {
+              error: saveError instanceof Error ? saveError.message : String(saveError),
+              sessionId,
+            })
+          }
         }
       }
     }

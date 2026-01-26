@@ -41,8 +41,9 @@ const INJECTION_PATTERNS: Array<{ pattern: RegExp; name: string }> = [
   { pattern: /\u200D/, name: 'zero_width_joiner' },
   { pattern: /\uFEFF/, name: 'bom' },
 
-  // Base64 encoded content (potential payload)
-  { pattern: /base64/i, name: 'base64_mention' },
+  // Base64 encoded payloads (actual base64 strings, not just mentions)
+  // Matches strings that look like base64-encoded data (40+ chars of base64 alphabet)
+  { pattern: /(?:[A-Za-z0-9+/]{4}){10,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?/, name: 'base64_payload' },
 
   // Delimiter manipulation
   { pattern: /```.*system/i, name: 'code_block_system' },

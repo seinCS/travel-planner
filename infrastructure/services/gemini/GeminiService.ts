@@ -9,52 +9,9 @@ import type { ILLMService, StreamChunk, ChatContext, RecommendedPlace } from '@/
 import { buildSystemPrompt, buildConversationContext } from './prompts/chatPrompt'
 import { logger } from '@/lib/logger'
 import { geminiCircuitBreaker } from '@/lib/circuit-breaker'
+import { cleanChatResponse } from '@/lib/chat-utils'
 
 const GEMINI_MODEL = 'gemini-2.0-flash'
-
-/**
- * Clean response text by removing unwanted JSON blocks and markdown tags
- * This is a defense layer against LLM outputting raw JSON or incorrect formats
- */
-function cleanResponse(text: string): string {
-  let cleaned = text
-
-  // 1. Remove generic ```json blocks (without :place suffix)
-  cleaned = cleaned.replace(/```json\s*[\s\S]*?```/g, '')
-
-  // 2. Remove ```javascript, ```typescript blocks
-  cleaned = cleaned.replace(/```(?:javascript|typescript|js|ts)\s*[\s\S]*?```/g, '')
-
-  // 3. Remove json:place with COMPLETE JSON (has closing brace)
-  cleaned = cleaned.replace(/json:place\s*\{[\s\S]*?\}\s*/gi, '')
-
-  // 4. Remove incomplete json:place blocks - match until double newline (paragraph break)
-  cleaned = cleaned.replace(/json:place\s*\{[^}]*?(?=\n\n)/gi, '')
-
-  // 5. Remove orphaned backticks that might be from incomplete blocks
-  cleaned = cleaned.replace(/```\s*$/gm, '')
-  cleaned = cleaned.replace(/^```\s*/gm, '')
-
-  // 6. Remove raw JSON objects that look like place data (complete - has closing brace)
-  cleaned = cleaned.replace(
-    /\{\s*"name"\s*:\s*"[^"]*"\s*,\s*"(?:name_en|address|category|description)"[\s\S]*?\}/g,
-    ''
-  )
-
-  // 7. Remove incomplete JSON objects - match until double newline
-  cleaned = cleaned.replace(
-    /\{\s*"name"\s*:\s*"[^"]*"[^}]*?(?=\n\n)/g,
-    ''
-  )
-
-  // 8. Remove any remaining markdown code block indicators
-  cleaned = cleaned.replace(/```\w*\n?/g, '')
-
-  // 9. Clean up extra whitespace
-  cleaned = cleaned.replace(/\n{3,}/g, '\n\n').trim()
-
-  return cleaned
-}
 
 /**
  * Validate if an object is a valid place
@@ -165,15 +122,30 @@ function parsePlaces(text: string): { cleanText: string; places: RecommendedPlac
   }
 
   // 4. Apply additional cleaning to remove any remaining JSON artifacts
-  cleanText = cleanResponse(cleanText)
+  cleanText = cleanChatResponse(cleanText)
 
   return { cleanText, places }
 }
 
+/**
+ * GeminiService - Server-side only
+ *
+ * SECURITY: This service must only be used in:
+ * - API Routes (app/api/*)
+ * - Server Components
+ * - Server Actions
+ *
+ * Never import this in client components or 'use client' files.
+ */
 class GeminiService implements ILLMService {
   private client: GoogleGenerativeAI | null = null
 
   private getClient(): GoogleGenerativeAI {
+    // Runtime check to ensure server-side execution
+    if (typeof window !== 'undefined') {
+      throw new Error('GeminiService must only be used on the server side')
+    }
+
     if (!this.client) {
       const apiKey = process.env.GEMINI_API_KEY
       if (!apiKey) {

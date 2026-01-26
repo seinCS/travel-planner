@@ -21,6 +21,28 @@ const RECONNECTION_CONFIG: ReconnectionConfig = {
   maxDelayMs: 5000,
 }
 
+// HTTP status codes that should NOT be retried
+// 4xx errors (except 408, 429) are client errors that won't succeed on retry
+const NON_RETRYABLE_STATUS_CODES = new Set([
+  400, // Bad Request
+  401, // Unauthorized
+  403, // Forbidden
+  404, // Not Found
+  405, // Method Not Allowed
+  409, // Conflict
+  422, // Unprocessable Entity
+])
+
+// HTTP status codes that SHOULD be retried
+const RETRYABLE_STATUS_CODES = new Set([
+  408, // Request Timeout
+  429, // Too Many Requests
+  500, // Internal Server Error
+  502, // Bad Gateway
+  503, // Service Unavailable
+  504, // Gateway Timeout
+])
+
 interface SendMessageOptions {
   isRetry?: boolean
   messageId?: string
@@ -72,7 +94,10 @@ export function useChatStream(projectId: string) {
 
         if (!response.ok) {
           const errorData = await response.json()
-          throw new Error(errorData.error?.message || '오류가 발생했습니다.')
+          const error = new Error(errorData.error?.message || '오류가 발생했습니다.')
+          // Attach status code to error for retry logic
+          ;(error as Error & { statusCode?: number }).statusCode = response.status
+          throw error
         }
 
         const reader = response.body?.getReader()
@@ -127,8 +152,14 @@ export function useChatStream(projectId: string) {
           return
         }
 
-        // Retry logic with exponential backoff
-        if (retryCountRef.current < RECONNECTION_CONFIG.maxRetries) {
+        // Check if error has a status code and determine retryability
+        const statusCode = (err as Error & { statusCode?: number }).statusCode
+        const isRetryable = statusCode
+          ? RETRYABLE_STATUS_CODES.has(statusCode) || !NON_RETRYABLE_STATUS_CODES.has(statusCode)
+          : true // Network errors without status codes are retryable
+
+        // Retry logic with exponential backoff (only for retryable errors)
+        if (isRetryable && retryCountRef.current < RECONNECTION_CONFIG.maxRetries) {
           const delay = Math.min(
             RECONNECTION_CONFIG.baseDelayMs * Math.pow(2, retryCountRef.current),
             RECONNECTION_CONFIG.maxDelayMs
