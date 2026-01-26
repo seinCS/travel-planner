@@ -286,3 +286,47 @@ model Accommodation {
 
   @@index([itineraryId])
 }
+
+// ========== 챗봇 ==========
+
+model ChatSession {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  isActive  Boolean  @default(true)
+
+  messages  ChatMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, userId])
+  @@index([projectId])
+  @@index([userId])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  sessionId String
+  role      String   // "user" | "assistant"
+  content   String   @db.Text
+  places    Json?    // 추천된 장소 목록 (JSON)
+
+  session   ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([createdAt])
+}
+
+model ChatUsage {
+  id        String   @id @default(cuid())
+  userId    String
+  date      DateTime @db.Date
+  count     Int      @default(0)
+
+  @@unique([userId, date])
+  @@index([userId])
+  @@index([date])
+}

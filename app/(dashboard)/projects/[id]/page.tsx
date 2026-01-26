@@ -36,6 +36,10 @@ const PlaceSearchModal = dynamic(() => import('@/components/place/PlaceSearchMod
   ssr: false,
 })
 
+const FloatingButton = dynamic(() => import('@/components/chat/FloatingButton').then(mod => mod.FloatingButton), {
+  ssr: false,
+})
+
 import { PlaceList } from '@/components/place/PlaceList'
 import { InputTabs } from '@/components/input/InputTabs'
 import { TextInputList } from '@/components/input/TextInputList'
@@ -500,6 +504,9 @@ export default function ProjectDetailPage({ params }: ProjectDetailProps) {
           onAddPlace={addPlace}
         />
       )}
+
+      {/* Chat Floating Button */}
+      <FloatingButton projectId={id} />
     </div>
   )
 }
