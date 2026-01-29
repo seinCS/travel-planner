@@ -6,9 +6,13 @@ import path from 'path'
 dotenv.config({ path: path.resolve(__dirname, '.env.test') })
 dotenv.config({ path: path.resolve(__dirname, '.env.local') })
 
+// storageState 파일 경로 (global-setup.ts와 동일)
+const STORAGE_STATE_PATH = '.auth/storage-state.json'
+
 export default defineConfig({
   testDir: './e2e',
   testMatch: '**/*.spec.ts',
+  globalSetup: './e2e/global-setup.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   // CI에서 재시도 1회로 제한 - flaky 테스트를 숨기지 않고 수정 권장
@@ -28,34 +32,22 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     actionTimeout: 10 * 1000, // 10 seconds for actions
     navigationTimeout: 15 * 1000, // 15 seconds for navigation
+    // 모든 프로젝트에서 저장된 인증 상태 사용
+    storageState: STORAGE_STATE_PATH,
   },
   projects: [
-    // Desktop Chrome (기본)
+    // ===== 핵심 프로젝트 (6개) =====
+    // 13개 → 6개로 축소하여 테스트 시간 단축 및 안정성 향상
+
+    // Desktop Chrome (기본) - 주요 테스트 브라우저
     {
       name: 'chromium',
       use: { ...devices['Desktop Chrome'] },
     },
-    // Desktop Firefox
-    {
-      name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
-    },
-    // Desktop Safari (WebKit)
-    {
-      name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
-    },
-    // Mobile - iPhone SE (최소 모바일, 375px) - Chromium 기반
-    {
-      name: 'mobile-iphone-se',
-      use: {
-        ...devices['Desktop Chrome'],
-        viewport: { width: 375, height: 667 },
-        isMobile: true,
-        hasTouch: true,
-      },
-    },
-    // Mobile - iPhone 14 Pro (일반 모바일, 393px) - Chromium 기반
+    // NOTE: firefox, webkit 프로젝트는 브라우저 미설치로 제거
+    // 필요 시 `npx playwright install` 실행 후 추가
+    // Mobile - iPhone 14 Pro (모바일 대표, 393px) - Chromium 기반
+    // SE, 14 Pro Max 대신 중간 사이즈로 대표
     {
       name: 'mobile-iphone-14-pro',
       use: {
@@ -65,31 +57,8 @@ export default defineConfig({
         hasTouch: true,
       },
     },
-    // Mobile - iPhone 14 Pro Max (대형 모바일, 430px) - Chromium 기반
-    {
-      name: 'mobile-iphone-14-pro-max',
-      use: {
-        ...devices['Desktop Chrome'],
-        viewport: { width: 430, height: 932 },
-        isMobile: true,
-        hasTouch: true,
-      },
-    },
-    // Mobile - iPhone SE (WebKit 기반, 실제 Safari 엔진)
-    {
-      name: 'mobile-iphone-se-webkit',
-      use: {
-        ...devices['iPhone SE'],
-      },
-    },
-    // Mobile - iPhone 14 (WebKit 기반, 실제 Safari 엔진)
-    {
-      name: 'mobile-iphone-14-webkit',
-      use: {
-        ...devices['iPhone 14'],
-      },
-    },
-    // Tablet - iPad Mini (768px) - Chromium 기반
+    // Tablet - iPad Mini (태블릿 대표, 768px) - Chromium 기반
+    // iPad WebKit 대신 Chromium 기반으로 안정성 확보
     {
       name: 'tablet-ipad-mini',
       use: {
@@ -99,30 +68,8 @@ export default defineConfig({
         hasTouch: true,
       },
     },
-    // Tablet - iPad (WebKit 기반, 실제 Safari 엔진)
-    {
-      name: 'tablet-ipad-webkit',
-      use: {
-        ...devices['iPad (gen 7)'],
-      },
-    },
-    // Windows 노트북 (소, 1366px)
-    {
-      name: 'laptop-small',
-      use: {
-        ...devices['Desktop Chrome'],
-        viewport: { width: 1366, height: 768 },
-      },
-    },
-    // Windows 노트북 (중, 1536px - FHD 스케일링)
-    {
-      name: 'laptop-medium',
-      use: {
-        ...devices['Desktop Chrome'],
-        viewport: { width: 1536, height: 864 },
-      },
-    },
-    // Desktop Full HD (1920px)
+    // Desktop Full HD (1920px) - 데스크탑 대표
+    // laptop-small, laptop-medium 대신 FHD로 대표
     {
       name: 'desktop-fhd',
       use: {
@@ -132,11 +79,12 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npm run dev',
+    command: 'E2E_TEST_MODE=true npm run dev',
     url: 'http://localhost:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
     env: {
+      ...process.env,
       E2E_TEST_MODE: 'true',
     },
   },

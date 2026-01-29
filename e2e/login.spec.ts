@@ -41,7 +41,7 @@ test.describe('로그인 페이지 (/login)', () => {
 
     // 클릭 후 URL이 변경되거나 OAuth 관련 요청이 발생하는지 확인
     await Promise.all([
-      page.waitForURL(url => url.includes('/api/auth') || url.includes('accounts.google.com'), { timeout: 5000 }),
+      page.waitForURL(url => url.toString().includes('/api/auth') || url.toString().includes('accounts.google.com'), { timeout: 5000 }),
       loginButton.click(),
     ]).catch(() => {
       // OAuth 리다이렉트가 발생하지 않을 수 있음 (환경에 따라)
