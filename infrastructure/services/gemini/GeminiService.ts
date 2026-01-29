@@ -2,6 +2,7 @@
  * Gemini Service
  *
  * Implementation of ILLMService using Google Gemini API.
+ * Supports both text-parsing mode (legacy) and Function Calling mode.
  *
  * SECURITY: This module is server-only and will cause build errors if imported
  * from client-side code. This prevents API key exposure.
@@ -10,12 +11,15 @@
 import 'server-only'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import type { ILLMService, StreamChunk, ChatContext, RecommendedPlace } from '@/domain/interfaces/ILLMService'
-import { buildSystemPrompt, buildConversationContext } from './prompts/chatPrompt'
+import type { ValidatedPlace } from '@/domain/interfaces/IPlaceValidationService'
+import { buildSystemPrompt, buildConversationContext, buildEnhancedSystemPrompt } from './prompts/chatPrompt'
+import { CHAT_TOOL_DECLARATIONS } from './tools/chatTools'
+import type { IToolExecutor, ToolExecutionContext } from '@/domain/interfaces/services/IToolExecutor'
 import { logger } from '@/lib/logger'
 import { geminiCircuitBreaker } from '@/lib/circuit-breaker'
 import { cleanChatResponse } from '@/lib/chat-utils'
 
-const GEMINI_MODEL = 'gemini-2.0-flash'
+const GEMINI_MODEL = 'gemini-3-flash-preview'
 
 /**
  * Validate API key at module load time (server startup)
@@ -179,6 +183,21 @@ function parsePlaces(text: string): { cleanText: string; places: RecommendedPlac
 }
 
 /**
+ * Convert a ValidatedPlace to RecommendedPlace for streaming
+ */
+function validatedToRecommended(place: ValidatedPlace): RecommendedPlace {
+  return {
+    name: place.name,
+    name_en: place.name_en,
+    address: place.address,
+    category: place.category,
+    description: place.description,
+    latitude: place.latitude,
+    longitude: place.longitude,
+  }
+}
+
+/**
  * GeminiService - Server-side only
  *
  * SECURITY: This service must only be used in:
@@ -190,6 +209,15 @@ function parsePlaces(text: string): { cleanText: string; places: RecommendedPlac
  */
 class GeminiService implements ILLMService {
   private client: GoogleGenerativeAI | null = null
+  private _toolExecutor: IToolExecutor | null = null
+
+  /**
+   * Set the tool executor for Function Calling support.
+   * When set, the service will use Function Calling instead of text parsing.
+   */
+  setToolExecutor(executor: IToolExecutor | null): void {
+    this._toolExecutor = executor
+  }
 
   private getClient(): GoogleGenerativeAI {
     // Runtime check to ensure server-side execution
@@ -208,6 +236,185 @@ class GeminiService implements ILLMService {
   }
 
   async *streamChat(
+    message: string,
+    context: ChatContext
+  ): AsyncGenerator<StreamChunk, void, unknown> {
+    if (this._toolExecutor) {
+      yield* this.streamChatWithTools(message, context)
+    } else {
+      yield* this.streamChatLegacy(message, context)
+    }
+  }
+
+  /**
+   * Function Calling mode: uses tools for structured responses.
+   * Falls back to text parsing if no function calls are made.
+   */
+  private async *streamChatWithTools(
+    message: string,
+    context: ChatContext
+  ): AsyncGenerator<StreamChunk, void, unknown> {
+    const systemPrompt = buildEnhancedSystemPrompt(context)
+    const conversationContext = buildConversationContext(context.conversationHistory)
+
+    const fullPrompt = conversationContext
+      ? `${conversationContext}\n\n사용자: ${message}`
+      : `사용자: ${message}`
+
+    try {
+      const client = this.getClient()
+      const model = client.getGenerativeModel({
+        model: GEMINI_MODEL,
+        tools: [{ functionDeclarations: CHAT_TOOL_DECLARATIONS }],
+        systemInstruction: { role: 'system', parts: [{ text: systemPrompt }] },
+      })
+
+      const result = await geminiCircuitBreaker.execute(async () => {
+        return model.generateContentStream({
+          contents: [{ role: 'user', parts: [{ text: fullPrompt }] }],
+          generationConfig: {
+            maxOutputTokens: 8192,
+            temperature: 0.7,
+          },
+        })
+      })
+
+      let accumulatedText = ''
+      let hadFunctionCall = false
+      const toolContext: ToolExecutionContext = {
+        projectId: context.projectId,
+        userId: '', // Will be filled by the caller if needed
+        existingPlaces: context.existingPlaces,
+        itinerary: context.itinerary,
+        destination: context.destination,
+        country: context.country,
+      }
+
+      for await (const chunk of result.stream) {
+        const candidate = chunk.candidates?.[0]
+        if (!candidate?.content?.parts) continue
+
+        for (const part of candidate.content.parts) {
+          // Handle text parts
+          if (part.text) {
+            accumulatedText += part.text
+            yield { type: 'text', content: part.text }
+          }
+
+          // Handle function calls
+          if (part.functionCall && this._toolExecutor) {
+            hadFunctionCall = true
+            const { name, args } = part.functionCall
+
+            logger.info('Gemini function call', {
+              toolName: name,
+              projectId: context.projectId,
+            })
+
+            yield {
+              type: 'tool_call',
+              toolCall: {
+                id: `tc-${Date.now()}`,
+                name,
+                args: (args || {}) as Record<string, unknown>,
+                status: 'executing',
+              },
+            }
+
+            // Execute the tool
+            const toolResult = await this._toolExecutor.execute(
+              name,
+              (args || {}) as Record<string, unknown>,
+              toolContext,
+            )
+
+            if (!toolResult.success) {
+              logger.warn('Tool execution failed', {
+                toolName: name,
+                error: toolResult.error,
+              })
+              yield {
+                type: 'text',
+                content: `\n(${toolResult.error || '도구 실행 중 오류가 발생했습니다.'})\n`,
+              }
+              continue
+            }
+
+            // Yield results based on tool type
+            if (name === 'recommend_places' && toolResult.data) {
+              const data = toolResult.data as { places: ValidatedPlace[]; reasoning?: string }
+              for (const place of data.places) {
+                yield { type: 'place', place: validatedToRecommended(place) }
+              }
+            }
+
+            if (name === 'generate_itinerary' && toolResult.data) {
+              const data = toolResult.data as {
+                preview: import('@/domain/interfaces/ILLMService').ItineraryPreviewData
+                skippedPlaces?: string[]
+              }
+              yield { type: 'itinerary_preview', itineraryPreview: data.preview }
+              if (data.skippedPlaces && data.skippedPlaces.length > 0) {
+                yield {
+                  type: 'text',
+                  content: `\n(참고: 다음 장소는 프로젝트에 저장되지 않아 일정에 포함되지 않았습니다: ${data.skippedPlaces.join(', ')})`,
+                }
+              }
+            }
+
+            if (name === 'search_nearby_places' && toolResult.data) {
+              const data = toolResult.data as { places: ValidatedPlace[] }
+              for (const place of data.places) {
+                yield { type: 'place', place: validatedToRecommended(place) }
+              }
+            }
+          }
+        }
+
+        // Check for finish reason
+        if (candidate.finishReason) {
+          logger.info('Gemini stream finish reason', {
+            finishReason: candidate.finishReason,
+            hadFunctionCall,
+            projectId: context.projectId,
+          })
+        }
+      }
+
+      // Fallback: If no function calls were made, try text parsing
+      if (!hadFunctionCall && accumulatedText) {
+        const { places } = parsePlaces(accumulatedText)
+        if (places.length > 0) {
+          logger.info('Function Calling fallback: parsed places from text', {
+            count: places.length,
+            projectId: context.projectId,
+          })
+          for (const place of places) {
+            yield { type: 'place', place }
+          }
+        }
+      }
+
+      yield { type: 'done', messageId: `msg-${Date.now()}` }
+
+    } catch (error) {
+      logger.error('Gemini streaming error (tools mode)', {
+        error: error instanceof Error ? error.message : String(error),
+        projectId: context.projectId,
+      })
+
+      yield {
+        type: 'error',
+        content: error instanceof Error ? error.message : 'AI 서비스 오류가 발생했습니다.',
+      }
+    }
+  }
+
+  /**
+   * Legacy text-parsing mode: original behavior without Function Calling.
+   * Used when toolExecutor is not set.
+   */
+  private async *streamChatLegacy(
     message: string,
     context: ChatContext
   ): AsyncGenerator<StreamChunk, void, unknown> {
