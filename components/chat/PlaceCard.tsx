@@ -2,15 +2,18 @@
 
 import { useState } from 'react'
 import DOMPurify from 'dompurify'
-import { MapPin, Plus, Check, Loader2 } from 'lucide-react'
+import { MapPin, Plus, Check, Loader2, Star, CircleCheck, Info } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { useAddPlaceFromChat } from '@/hooks/mutations/useAddPlaceFromChat'
 import type { RecommendedPlace } from '@/domain/interfaces/ILLMService'
+import type { ValidatedPlace } from '@/domain/interfaces/IPlaceValidationService'
 import { cn } from '@/lib/utils'
 import { CATEGORY_STYLES, type PlaceCategory } from '@/lib/constants'
 
+type PlaceCardPlace = RecommendedPlace & Partial<Pick<ValidatedPlace, 'isVerified' | 'rating' | 'userRatingsTotal' | 'distanceFromReference'>>
+
 interface PlaceCardProps {
-  place: RecommendedPlace
+  place: PlaceCardPlace
   projectId: string
 }
 
@@ -36,7 +39,7 @@ export function PlaceCard({ place, projectId }: PlaceCardProps) {
 
   const categoryStyle = CATEGORY_STYLES[place.category as PlaceCategory] || CATEGORY_STYLES.other
   const categoryLabel = categoryStyle.label
-  const categoryIcon = categoryStyle.icon
+  const CategoryIcon = categoryStyle.Icon
 
   return (
     <div
@@ -50,7 +53,7 @@ export function PlaceCard({ place, projectId }: PlaceCardProps) {
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-lg">{categoryIcon}</span>
+            <CategoryIcon className="w-5 h-5 flex-shrink-0" style={{ color: categoryStyle.color }} />
             <h4 className="font-medium text-gray-900 truncate">{place.name}</h4>
           </div>
           {place.name_en && (
@@ -76,6 +79,38 @@ export function PlaceCard({ place, projectId }: PlaceCardProps) {
           className="mt-2 text-sm text-gray-600 line-clamp-2"
           dangerouslySetInnerHTML={{ __html: sanitizedDescription }}
         />
+      )}
+
+      {/* Validation Info */}
+      {(place.isVerified !== undefined || place.rating || place.distanceFromReference) && (
+        <div className="mt-2 flex items-center gap-3 text-xs text-gray-500">
+          {place.isVerified !== undefined && (
+            <span className={cn(
+              'flex items-center gap-1',
+              place.isVerified ? 'text-green-600' : 'text-gray-400'
+            )}>
+              {place.isVerified ? (
+                <><CircleCheck className="h-3 w-3" /> 확인됨</>
+              ) : (
+                <><Info className="h-3 w-3" /> 미확인</>
+              )}
+            </span>
+          )}
+          {place.rating !== undefined && (
+            <span className="flex items-center gap-0.5 text-amber-500">
+              <Star className="h-3 w-3 fill-current" />
+              {place.rating.toFixed(1)}
+              {place.userRatingsTotal !== undefined && (
+                <span className="text-gray-400">({place.userRatingsTotal})</span>
+              )}
+            </span>
+          )}
+          {place.distanceFromReference !== undefined && (
+            <span className="text-gray-400">
+              ~{place.distanceFromReference.toFixed(1)}km
+            </span>
+          )}
+        </div>
       )}
 
       {/* Add Button */}

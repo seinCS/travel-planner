@@ -5,7 +5,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react'
-import type { StreamChunk, RecommendedPlace } from '@/domain/interfaces/ILLMService'
+import type { StreamChunk, RecommendedPlace, ToolCallChunk, ItineraryPreviewData } from '@/domain/interfaces/ILLMService'
 import { useSWRConfig } from 'swr'
 import { cleanChatResponse } from '@/lib/utils'
 import { HttpError } from '@/lib/errors'
@@ -49,6 +49,8 @@ export function useChatStream(projectId: string) {
   const [isCancelled, setIsCancelled] = useState(false)
   const [streamingContent, setStreamingContent] = useState('')
   const [streamingPlaces, setStreamingPlaces] = useState<RecommendedPlace[]>([])
+  const [streamingToolCalls, setStreamingToolCalls] = useState<ToolCallChunk[]>([])
+  const [streamingItineraryPreview, setStreamingItineraryPreview] = useState<ItineraryPreviewData | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [lastFailedMessage, setLastFailedMessage] = useState<string | null>(null)
   const retryCountRef = useRef(0)
@@ -80,6 +82,8 @@ export function useChatStream(projectId: string) {
       setIsCancelled(false)
       setStreamingContent('')
       setStreamingPlaces([])
+      setStreamingToolCalls([])
+      setStreamingItineraryPreview(null)
       setError(null)
 
       abortControllerRef.current = new AbortController()
@@ -135,6 +139,18 @@ export function useChatStream(projectId: string) {
                     )
                     return isDuplicate ? prev : [...prev, newPlace]
                   })
+                } else if (chunk.type === 'tool_call' && chunk.toolCall) {
+                  setStreamingToolCalls((prev) => {
+                    const existing = prev.findIndex(t => t.id === chunk.toolCall!.id)
+                    if (existing >= 0) {
+                      const updated = [...prev]
+                      updated[existing] = chunk.toolCall!
+                      return updated
+                    }
+                    return [...prev, chunk.toolCall!]
+                  })
+                } else if (chunk.type === 'itinerary_preview' && chunk.itineraryPreview) {
+                  setStreamingItineraryPreview(chunk.itineraryPreview)
                 } else if (chunk.type === 'error') {
                   setError(chunk.content || '오류가 발생했습니다.')
                   setLastFailedMessage(message)
@@ -201,6 +217,8 @@ export function useChatStream(projectId: string) {
   const reset = useCallback(() => {
     setStreamingContent('')
     setStreamingPlaces([])
+    setStreamingToolCalls([])
+    setStreamingItineraryPreview(null)
     setError(null)
     setLastFailedMessage(null)
     setIsCancelled(false)
@@ -215,6 +233,8 @@ export function useChatStream(projectId: string) {
     isCancelled,
     streamingContent,
     streamingPlaces,
+    streamingToolCalls,
+    streamingItineraryPreview,
     error,
     lastFailedMessage,
   }

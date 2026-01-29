@@ -2,16 +2,29 @@
 
 import { useMemo } from 'react'
 import { PlaceCard } from './PlaceCard'
-import type { RecommendedPlace } from '@/domain/interfaces/ILLMService'
+import { ItineraryPreviewCard } from './ItineraryPreviewCard'
+import type { RecommendedPlace, ItineraryPreviewData } from '@/domain/interfaces/ILLMService'
 import { cleanChatResponse } from '@/lib/utils'
 
 interface StreamingMessageProps {
   content: string
   places: RecommendedPlace[]
   projectId: string
+  itineraryPreview?: ItineraryPreviewData | null
+  onApplyItinerary?: () => void
+  onRegenerateItinerary?: () => void
+  isApplyingItinerary?: boolean
 }
 
-export function StreamingMessage({ content, places, projectId }: StreamingMessageProps) {
+export function StreamingMessage({
+  content,
+  places,
+  projectId,
+  itineraryPreview,
+  onApplyItinerary,
+  onRegenerateItinerary,
+  isApplyingItinerary = false,
+}: StreamingMessageProps) {
   // Clean the streaming content to remove any JSON artifacts
   const cleanedContent = useMemo(() => cleanChatResponse(content), [content])
 
@@ -53,6 +66,18 @@ export function StreamingMessage({ content, places, projectId }: StreamingMessag
                 projectId={projectId}
               />
             ))}
+          </div>
+        )}
+
+        {/* Itinerary Preview Card */}
+        {itineraryPreview && onApplyItinerary && onRegenerateItinerary && (
+          <div className="mt-3">
+            <ItineraryPreviewCard
+              preview={itineraryPreview}
+              onApply={onApplyItinerary}
+              onRegenerate={onRegenerateItinerary}
+              isApplying={isApplyingItinerary}
+            />
           </div>
         )}
       </div>

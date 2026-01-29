@@ -10,6 +10,7 @@ import { promptInjectionFilter } from '@/application/services/PromptInjectionFil
 import { UsageLimitService } from '@/application/services/UsageLimitService'
 import { logger } from '@/lib/logger'
 import type { IUsageRepository } from '@/domain/interfaces/IUsageRepository'
+import type { ChatContextBuilder } from '@/application/services/chat/ContextBuilder'
 
 export interface SendMessageInput {
   projectId: string
@@ -17,7 +18,13 @@ export interface SendMessageInput {
   message: string
   destination: string
   country?: string
-  existingPlaces: Array<{ name: string; category: string }>
+  existingPlaces: Array<{
+    id?: string
+    name: string
+    category: string
+    latitude?: number
+    longitude?: number
+  }>
 }
 
 export interface SendMessageResult {
@@ -33,7 +40,8 @@ export class SendMessageUseCase {
   constructor(
     private readonly chatRepository: IChatRepository,
     private readonly llmService: ILLMService,
-    usageRepository: IUsageRepository
+    usageRepository: IUsageRepository,
+    private readonly contextBuilder?: ChatContextBuilder,
   ) {
     this.usageLimitService = new UsageLimitService(usageRepository)
   }
@@ -82,12 +90,27 @@ export class SendMessageUseCase {
     // 5. Record usage
     await this.usageLimitService.recordUsage(userId)
 
-    // 6. Get conversation history for context
-    const recentMessages = await this.chatRepository.getRecentMessages(session.id, 10)
-    const conversationHistory = recentMessages.map(msg => ({
-      role: msg.role as 'user' | 'assistant',
-      content: msg.content,
-    }))
+    // 6. Build context (enhanced or legacy)
+    const chatContext = this.contextBuilder
+      ? await this.contextBuilder.build({
+          projectId,
+          userId,
+          sessionId: session.id,
+          existingPlaces,
+          destination,
+          country,
+        })
+      : {
+          projectId,
+          destination,
+          country,
+          existingPlaces,
+          conversationHistory: (await this.chatRepository.getRecentMessages(session.id, 10))
+            .map(msg => ({
+              role: msg.role as 'user' | 'assistant',
+              content: msg.content,
+            })),
+        }
 
     // 7. Create streaming response generator with proper resource cleanup
     const chatRepo = this.chatRepository
@@ -140,13 +163,7 @@ export class SendMessageUseCase {
       }
 
       try {
-        const stream = llm.streamChat(sanitizedMessage, {
-          projectId,
-          destination,
-          country,
-          existingPlaces,
-          conversationHistory,
-        })
+        const stream = llm.streamChat(sanitizedMessage, chatContext)
 
         for await (const chunk of stream) {
           if (chunk.type === 'text' && chunk.content) {
@@ -154,6 +171,8 @@ export class SendMessageUseCase {
           } else if (chunk.type === 'place' && chunk.place) {
             places.push(chunk.place)
           }
+          // tool_call, tool_result, itinerary_preview chunks are yielded as-is
+          // Only text content is accumulated for saving
 
           yield chunk
 

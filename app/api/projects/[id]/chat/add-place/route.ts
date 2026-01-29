@@ -140,7 +140,33 @@ export async function POST(
       }
     }
 
-    // 6. Create the place with sanitized values
+    // 6. Fetch rating from Google Places API if we have googlePlaceId
+    let rating: number | null = null
+    let userRatingsTotal: number | null = null
+
+    if (googlePlaceId) {
+      try {
+        const placesApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+        if (placesApiKey) {
+          const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${googlePlaceId}&fields=rating,user_ratings_total&key=${placesApiKey}`
+          const detailsResponse = await fetch(detailsUrl)
+          const detailsData = await detailsResponse.json()
+
+          if (detailsData.status === 'OK' && detailsData.result) {
+            rating = detailsData.result.rating ?? null
+            userRatingsTotal = detailsData.result.user_ratings_total ?? null
+          }
+        }
+      } catch (ratingError) {
+        // Graceful degradation - continue without rating
+        logger.warn('Failed to fetch place rating', {
+          googlePlaceId,
+          error: ratingError instanceof Error ? ratingError.message : String(ratingError),
+        })
+      }
+    }
+
+    // 7. Create the place with sanitized values and rating
     const newPlace = await prisma.place.create({
       data: {
         projectId,
@@ -153,6 +179,8 @@ export async function POST(
         formattedAddress,
         googlePlaceId,
         googleMapsUrl,
+        rating,
+        userRatingsTotal,
       },
     })
 
