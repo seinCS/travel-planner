@@ -34,12 +34,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const { id: itineraryId } = await params
 
-    // Verify itinerary exists and user has access
+    // Verify itinerary exists and user has access (select로 필요한 필드만)
     const itinerary = await prisma.itinerary.findUnique({
       where: { id: itineraryId },
-      include: {
-        project: true,
-      },
+      select: { id: true, projectId: true },
     })
 
     if (!itinerary) {
@@ -80,12 +78,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const body = await request.json()
     const validatedData = createAccommodationSchema.parse(body)
 
-    // Verify itinerary exists and user has access
+    // Verify itinerary exists and user has access (select로 필요한 필드만)
     const itinerary = await prisma.itinerary.findUnique({
       where: { id: itineraryId },
-      include: {
-        project: true,
-      },
+      select: { id: true, projectId: true },
     })
 
     if (!itinerary) {
@@ -96,22 +92,27 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    const accommodation = await prisma.accommodation.create({
-      data: {
-        itineraryId,
-        name: validatedData.name,
-        address: validatedData.address || null,
-        checkIn: new Date(validatedData.checkIn),
-        checkOut: new Date(validatedData.checkOut),
-        latitude: validatedData.latitude || null,
-        longitude: validatedData.longitude || null,
-        note: validatedData.note || null,
-      },
-    })
+    // 트랜잭션으로 숙소 생성 + 아이템 생성을 원자적으로 처리
+    const accommodation = await prisma.$transaction(async (tx) => {
+      const newAccommodation = await tx.accommodation.create({
+        data: {
+          itineraryId,
+          name: validatedData.name,
+          address: validatedData.address || null,
+          checkIn: new Date(validatedData.checkIn),
+          checkOut: new Date(validatedData.checkOut),
+          latitude: validatedData.latitude || null,
+          longitude: validatedData.longitude || null,
+          note: validatedData.note || null,
+        },
+      })
 
-    // 숙소 일정 아이템 자동 생성
-    const syncService = createAccommodationItinerarySyncService(prisma)
-    await syncService.createItemsForAccommodation(accommodation)
+      // 숙소 일정 아이템 자동 생성 (트랜잭션 컨텍스트 사용)
+      const syncService = createAccommodationItinerarySyncService(tx)
+      await syncService.createItemsForAccommodation(newAccommodation)
+
+      return newAccommodation
+    })
 
     // Broadcast realtime event
     realtimeBroadcast.accommodationCreated(itinerary.projectId, accommodation, session.user.id)

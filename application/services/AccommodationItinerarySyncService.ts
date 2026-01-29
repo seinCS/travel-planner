@@ -7,7 +7,7 @@
  * - 숙소 삭제 시 관련 일정 아이템 자동 삭제 (Prisma Cascade)
  */
 
-import { PrismaClient, ItineraryDay, Accommodation } from '@prisma/client'
+import { PrismaClient, ItineraryDay, Accommodation, Prisma } from '@prisma/client'
 
 export type AccommodationItemType =
   | 'accommodation_checkin'
@@ -20,8 +20,14 @@ interface SyncResult {
   deleted: number
 }
 
+// Prisma 트랜잭션 클라이언트 타입 (PrismaClient 또는 트랜잭션 컨텍스트)
+type PrismaTransactionClient = Omit<
+  PrismaClient,
+  '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
+>
+
 export class AccommodationItinerarySyncService {
-  constructor(private prisma: PrismaClient) {}
+  constructor(private prisma: PrismaClient | PrismaTransactionClient) {}
 
   /**
    * 숙소에 해당하는 날짜들의 ItineraryDay를 찾아서 반환
@@ -195,9 +201,9 @@ export class AccommodationItinerarySyncService {
   }
 }
 
-// Factory function
+// Factory function (PrismaClient 또는 트랜잭션 컨텍스트 모두 지원)
 export function createAccommodationItinerarySyncService(
-  prisma: PrismaClient
+  prisma: PrismaClient | PrismaTransactionClient
 ): AccommodationItinerarySyncService {
   return new AccommodationItinerarySyncService(prisma)
 }

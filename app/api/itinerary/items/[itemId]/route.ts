@@ -33,14 +33,15 @@ export async function PUT(
 
     const { itemId } = await params
 
-    // Verify item exists and get project info
+    // Verify item exists and get project info (select로 필요한 필드만)
     const item = await prisma.itineraryItem.findUnique({
       where: { id: itemId },
-      include: {
+      select: {
+        id: true,
         day: {
-          include: {
+          select: {
             itinerary: {
-              include: { project: true },
+              select: { projectId: true },
             },
           },
         },
@@ -103,14 +104,15 @@ export async function DELETE(
 
     const { itemId } = await params
 
-    // Verify item exists and get project info
+    // Verify item exists and get project info (select로 필요한 필드만)
     const item = await prisma.itineraryItem.findUnique({
       where: { id: itemId },
-      include: {
+      select: {
+        id: true,
         day: {
-          include: {
+          select: {
             itinerary: {
-              include: { project: true },
+              select: { projectId: true },
             },
           },
         },

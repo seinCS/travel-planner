@@ -51,21 +51,17 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    // Verify target day exists and belongs to same itinerary
+    // Verify target day exists and belongs to same itinerary (select만 사용)
     const targetDay = await prisma.itineraryDay.findUnique({
       where: { id: validatedData.targetDayId },
-      include: {
-        items: {
-          orderBy: { order: 'asc' },
-        },
-      },
+      select: { id: true, itineraryId: true },
     })
 
     if (!targetDay) {
       return NextResponse.json({ error: 'Target day not found' }, { status: 404 })
     }
 
-    if (targetDay.itineraryId !== item.day.itineraryId) {
+    if (targetDay.itineraryId !== item.day.itinerary.id) {
       return NextResponse.json(
         { error: 'Target day must belong to the same itinerary' },
         { status: 400 }
@@ -91,8 +87,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ item: updatedItem })
     }
 
-    // Calculate new order (append to end of target day if not specified)
-    const newOrder = validatedData.order ?? targetDay.items.length
+    // Calculate new order - count 쿼리로 최적화 (전체 items 로드 대신)
+    let newOrder = validatedData.order
+    if (newOrder === undefined) {
+      const itemCount = await prisma.itineraryItem.count({
+        where: { dayId: validatedData.targetDayId },
+      })
+      newOrder = itemCount
+    }
 
     // Use transaction for atomic operation
     const updatedItem = await prisma.$transaction(async (tx) => {
