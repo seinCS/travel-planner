@@ -18,3 +18,6 @@ export * from './useMembers'
 // Chat-related hooks
 export * from './useChatHistory'
 export * from './useChatUsage'
+
+// Route/Distance hooks
+export * from './useDistances'
