@@ -4,10 +4,9 @@
  * Detects duplicate places using multiple strategies:
  * 1. Google Place ID match
  * 2. Name match (case-insensitive)
- * 3. Coordinate proximity (within 100m)
  */
 
-import { areCoordinatesNear, type Coordinates } from '@/domain/value-objects/Coordinates'
+import { type Coordinates } from '@/domain/value-objects/Coordinates'
 
 /**
  * Minimal place type for duplicate detection
@@ -26,12 +25,6 @@ export interface DuplicateDetectionResult<T extends DuplicateCandidate> {
 }
 
 export class DuplicateDetectionService {
-  private readonly proximityThresholdMeters: number
-
-  constructor(proximityThresholdMeters: number = 100) {
-    this.proximityThresholdMeters = proximityThresholdMeters
-  }
-
   /**
    * Find duplicate place from existing places
    */
@@ -39,7 +32,7 @@ export class DuplicateDetectionService {
     existingPlaces: T[],
     placeName: string,
     googlePlaceId: string | null | undefined,
-    coordinates: Coordinates
+    _coordinates: Coordinates
   ): DuplicateDetectionResult<T> {
     const placeNameLower = placeName.toLowerCase()
 
@@ -55,15 +48,6 @@ export class DuplicateDetectionService {
 
       // 2순위: 이름 일치 (case-insensitive)
       if (place.name.toLowerCase() === placeNameLower) {
-        return true
-      }
-
-      // 3순위: 좌표 근접
-      const placeCoords: Coordinates = {
-        latitude: place.latitude,
-        longitude: place.longitude,
-      }
-      if (areCoordinatesNear(placeCoords, coordinates, this.proximityThresholdMeters)) {
         return true
       }
 
