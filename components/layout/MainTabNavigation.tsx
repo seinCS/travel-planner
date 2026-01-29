@@ -1,5 +1,7 @@
 'use client'
 
+import { Location, TabCalendar, Users } from '@/components/icons'
+
 export type MainTab = 'places' | 'itinerary' | 'members'
 
 interface MainTabNavigationProps {
@@ -18,7 +20,7 @@ export function MainTabNavigation({ activeTab, onTabChange }: MainTabNavigationP
         }`}
         onClick={() => onTabChange('places')}
       >
-        📍 장소
+        <Location className="w-4 h-4 inline" /> 장소
       </button>
       <button
         className={`flex-1 sm:flex-none px-6 py-2.5 text-sm font-medium transition-all duration-200 rounded-xl ${
@@ -28,7 +30,7 @@ export function MainTabNavigation({ activeTab, onTabChange }: MainTabNavigationP
         }`}
         onClick={() => onTabChange('itinerary')}
       >
-        📅 일정
+        <TabCalendar className="w-4 h-4 inline" /> 일정
       </button>
       <button
         className={`flex-1 sm:flex-none px-6 py-2.5 text-sm font-medium transition-all duration-200 rounded-xl ${
@@ -38,7 +40,7 @@ export function MainTabNavigation({ activeTab, onTabChange }: MainTabNavigationP
         }`}
         onClick={() => onTabChange('members')}
       >
-        👥 멤버
+        <Users className="w-4 h-4 inline" /> 멤버
       </button>
     </div>
   )

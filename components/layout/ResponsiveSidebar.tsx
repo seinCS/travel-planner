@@ -1,6 +1,7 @@
 'use client'
 
 import { cn } from '@/lib/utils'
+import { MapPin, Plus } from '@/lib/icons'
 
 interface ResponsiveSidebarProps {
   activeTab: 'list' | 'input'
@@ -31,7 +32,9 @@ export function ResponsiveSidebar({
           )}
           onClick={() => onTabChange('list')}
         >
-          📍 목록 {placeCount > 0 && `(${placeCount})`}
+          <span className="flex items-center gap-1">
+            <MapPin className="w-4 h-4" /> 목록 {placeCount > 0 && `(${placeCount})`}
+          </span>
         </button>
         <button
           className={cn(
@@ -43,7 +46,9 @@ export function ResponsiveSidebar({
           )}
           onClick={() => onTabChange('input')}
         >
-          ➕ 입력 {pendingCount > 0 && `(${pendingCount})`}
+          <span className="flex items-center gap-1">
+            <Plus className="w-4 h-4" /> 입력 {pendingCount > 0 && `(${pendingCount})`}
+          </span>
         </button>
       </div>
 

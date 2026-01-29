@@ -4,6 +4,7 @@ import { memo } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { MapPin, ImageIcon } from '@/lib/icons'
 
 interface ProjectCardProps {
   id: string
@@ -61,8 +62,12 @@ export const ProjectCard = memo(function ProjectCard({
         </CardHeader>
         <CardContent>
           <div className="flex gap-4 text-sm text-muted-foreground mb-2">
-            <span className="flex items-center gap-1">📍 {placesCount}개 장소</span>
-            <span className="flex items-center gap-1">🖼️ {imagesCount}개 이미지</span>
+            <span className="flex items-center gap-1">
+              <MapPin className="w-4 h-4" /> {placesCount}개 장소
+            </span>
+            <span className="flex items-center gap-1">
+              <ImageIcon className="w-4 h-4" /> {imagesCount}개 이미지
+            </span>
           </div>
           {!isOwner && ownerName && (
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">

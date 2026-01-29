@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { AlertCircle } from 'lucide-react'
+import { AlertCircle, Star } from '@/components/icons'
 
 interface PlaceListProps {
   places: Place[]
@@ -101,7 +101,7 @@ export const PlaceList = memo(function PlaceList({
                 backgroundColor: categoryFilter === key ? style.color : undefined,
               }}
             >
-              {style.icon} {style.label} ({count})
+              <style.Icon className="w-3.5 h-3.5" /> {style.label} ({count})
             </Button>
           )
         })}
@@ -140,14 +140,14 @@ export const PlaceList = memo(function PlaceList({
                         className="w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0"
                         style={{ backgroundColor: style.color + '20', color: style.color }}
                       >
-                        {style.icon}
+                        <style.Icon className="w-3.5 h-3.5" />
                       </span>
                       <h3 className="font-medium text-sm truncate">{place.name}</h3>
                     </div>
                     {/* 평점 표시 */}
                     {place.rating && (
                       <div className="flex items-center gap-1 mt-1 ml-8">
-                        <span className="text-yellow-500 text-xs">★</span>
+                        <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
                         <span className="text-xs">{place.rating.toFixed(1)}</span>
                         {place.userRatingsTotal && (
                           <span className="text-xs text-muted-foreground">

@@ -1,0 +1,29 @@
+import { forwardRef } from 'react'
+import type { IconProps } from '../_IconBase'
+
+const Success = forwardRef<SVGSVGElement, IconProps>(
+  ({ size = 24, className, secondaryOpacity = 0.4, ...props }, ref) => (
+    <svg
+      ref={ref}
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      className={className}
+      {...props}
+    >
+      <g transform="translate(1.5, 1.5) scale(0.1131)">
+        <g className="duotone-secondary" opacity={secondaryOpacity} fill="currentColor">
+          <path d="M185.64,92.82c0,51.263-41.557,92.82-92.82,92.82S0,144.083,0,92.82,41.557,0,92.82,0s92.82,41.557,92.82,92.82ZM71.645,134.915c3.587,3.578,8.493,2.645,11.648-.567l64.3-65.449c3.145-3.201,2.467-7.929-.353-10.781l-7.02-7.1c-3.02-3.054-7.426-2.913-10.459.143l-52.565,52.965-21.292-20.755c-2.792-2.721-7.07-2.698-9.943-.173l-7.015,6.825c-4.251,4.136-3.231,9.058.57,12.849l32.13,32.043Z"/>
+        </g>
+        <g className="duotone-primary" fill="currentColor">
+          <path d="M71.645,134.915l-32.13-32.043c-3.801-3.791-4.821-8.713-.57-12.849l7.015-6.825c2.873-2.524,7.151-2.548,9.943.173l21.292,20.755,52.565-52.965c3.033-3.056,7.439-3.197,10.459-.143l7.02,7.1c2.82,2.852,3.498,7.58.353,10.781l-64.3,65.449c-3.155,3.212-8.06,4.144-11.648.567Z"/>
+        </g>
+      </g>
+    </svg>
+  )
+)
+
+Success.displayName = 'Success'
+export { Success }

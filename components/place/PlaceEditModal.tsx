@@ -138,7 +138,7 @@ export function PlaceEditModal({
               <SelectContent>
                 {Object.entries(CATEGORY_STYLES).map(([key, style]) => (
                   <SelectItem key={key} value={key}>
-                    {style.icon} {style.label}
+                    <span className="inline-flex items-center gap-1"><style.Icon className="w-3.5 h-3.5" /> {style.label}</span>
                   </SelectItem>
                 ))}
               </SelectContent>

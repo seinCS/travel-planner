@@ -1,0 +1,30 @@
+import { forwardRef } from 'react'
+import type { IconProps } from '../_IconBase'
+
+const Gallery = forwardRef<SVGSVGElement, IconProps>(
+  ({ size = 24, className, secondaryOpacity = 0.4, ...props }, ref) => (
+    <svg
+      ref={ref}
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      className={className}
+      {...props}
+    >
+      <g transform="translate(1.5, 2.61) scale(0.1097)">
+        <g className="duotone-secondary" opacity={secondaryOpacity} fill="currentColor">
+          <path d="M162.842,87.33l15.34,15.929.054-90.185-128.7-.046-.658,9.09-12.705.019-.087-12.637C36.049,4.17,40.208.01,45.667.01L181.381,0c5.66,0,10.046,3.548,10.046,9.631l-.003,121.811c0,5.244-3.427,10.249-8.825,10.25l-19.962.005.205-54.368Z"/>
+        </g>
+        <g className="duotone-primary" fill="currentColor">
+          <path d="M146.669,171.093l-136.87.038C4.738,171.133-.002,167.275,0,161.853L.036,38.228c.002-5.333,4.508-8.836,9.574-8.835l136.832.039c5.879.002,8.959,4.938,8.961,10.135l.049,120.918c.002,4.945-2.69,10.607-8.783,10.608ZM104.949,99.095c2.609-1.305,5.785-.724,7.655,1.281l29.52,32.37.174-90.299-129.056-.008.166,90.396,40.656-52.672c2.439-2.765,5.695-2.932,8.444-.631l28.1,33.095,14.341-13.533Z"/>
+<circle cx="114.167" cy="67.194" r="12.147"/>
+        </g>
+      </g>
+    </svg>
+  )
+)
+
+Gallery.displayName = 'Gallery'
+export { Gallery }

@@ -1,7 +1,10 @@
 'use client'
 
 import dynamic from 'next/dynamic'
+import { useState, useMemo, useCallback } from 'react'
+import { useItinerary } from '@/hooks/queries/useItinerary'
 import type { Place } from '@/types'
+import type { RoutePathPoint } from '@/components/itinerary/ItineraryView'
 
 const GoogleMap = dynamic(() => import('@/components/map/GoogleMap').then(mod => mod.GoogleMap), {
   ssr: false,
@@ -48,6 +51,33 @@ export function ItineraryLayout({
   onOpenDetails,
   onDaySelect,
 }: ItineraryLayoutProps) {
+  // 일정 데이터에서 숙소 정보 가져오기
+  const { itinerary } = useItinerary(projectId)
+
+  // 경로 시각화용 상태
+  const [routePath, setRoutePath] = useState<RoutePathPoint[] | null>(null)
+
+  // 경로 변경 핸들러
+  const handleRouteChange = useCallback((path: RoutePathPoint[] | null) => {
+    setRoutePath(path)
+  }, [])
+
+  // 숙소를 맵 마커용 형식으로 변환 (좌표가 있는 숙소만)
+  const mapAccommodations = useMemo(() => {
+    if (!itinerary?.accommodations) return []
+    return itinerary.accommodations
+      .filter((acc) => acc.latitude !== null && acc.longitude !== null)
+      .map((acc) => ({
+        id: acc.id,
+        name: acc.name,
+        address: acc.address,
+        latitude: acc.latitude as number,
+        longitude: acc.longitude as number,
+        checkIn: acc.checkIn,
+        checkOut: acc.checkOut,
+      }))
+  }, [itinerary?.accommodations])
+
   // 선택된 Day의 장소만 필터링
   // Day 미선택 시: 모든 장소 표시 (요구사항 2.4)
   const mapPlaces = selectedDayPlaceIds === null
@@ -61,6 +91,7 @@ export function ItineraryLayout({
         <div className="glass-card overflow-hidden min-h-[400px]">
           <GoogleMap
             places={mapPlaces}
+            accommodations={mapAccommodations}
             selectedPlaceId={selectedPlaceId}
             onPlaceSelect={onPlaceSelect}
             onOpenDetails={onOpenDetails}
@@ -68,6 +99,9 @@ export function ItineraryLayout({
             destinationCenter={destinationCenter}
             fitBoundsKey={fitBoundsKey}
             enablePanToOnSelect={true}
+            routePath={routePath || undefined}
+            showRoute={!!routePath}
+            showOrderLabels={!!routePath}
           />
         </div>
 
@@ -80,6 +114,7 @@ export function ItineraryLayout({
               onPlaceSelect(placeId)
               onOpenDetails(placeId)
             }}
+            onRouteChange={handleRouteChange}
           />
         </div>
       </div>
@@ -89,6 +124,7 @@ export function ItineraryLayout({
         <div className="glass-card overflow-hidden min-h-[400px]">
           <GoogleMap
             places={mapPlaces}
+            accommodations={mapAccommodations}
             selectedPlaceId={selectedPlaceId}
             onPlaceSelect={onPlaceSelect}
             onOpenDetails={onOpenDetails}
@@ -96,6 +132,9 @@ export function ItineraryLayout({
             destinationCenter={destinationCenter}
             fitBoundsKey={fitBoundsKey}
             enablePanToOnSelect={true}
+            routePath={routePath || undefined}
+            showRoute={!!routePath}
+            showOrderLabels={!!routePath}
           />
         </div>
 
@@ -108,6 +147,7 @@ export function ItineraryLayout({
               onPlaceSelect(placeId)
               onOpenDetails(placeId)
             }}
+            onRouteChange={handleRouteChange}
           />
         </div>
       </div>

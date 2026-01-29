@@ -8,6 +8,7 @@ import { ImageList } from '@/components/upload/ImageList'
 import { FailedImages } from '@/components/place/FailedImages'
 import { ResponsiveSidebar } from '@/components/layout/ResponsiveSidebar'
 import { Button } from '@/components/ui/button'
+import { Location } from '@/components/icons'
 import type { Place, Image, TextInput, CreatePlaceInput } from '@/types'
 
 const GoogleMap = dynamic(() => import('@/components/map/GoogleMap').then(mod => mod.GoogleMap), {
@@ -115,7 +116,7 @@ export function PlacesLayout({
         <div className="glass-card p-5 overflow-hidden h-full flex flex-col">
           {/* Header with search button */}
           <div className="flex items-center justify-between mb-4 flex-shrink-0">
-            <h2 className="font-semibold text-gray-800">📍 장소 목록 ({places.length}개)</h2>
+            <h2 className="font-semibold text-gray-800 flex items-center gap-1.5"><Location className="w-4 h-4" /> 장소 목록 ({places.length}개)</h2>
             {onSearchClick && (
               <Button
                 size="sm"

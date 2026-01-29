@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { SUPPORTED_IMAGE_TYPES, MAX_IMAGE_SIZE, MAX_UPLOAD_COUNT } from '@/lib/constants'
 import { imagesApi } from '@/infrastructure/api-client/images.api'
+import { Screenshot } from '@/components/icons'
 
 interface ImageUploaderProps {
   projectId: string
@@ -209,8 +210,8 @@ export function ImageUploader({ projectId, onUploadComplete, disabled }: ImageUp
           <p className="text-sm text-muted-foreground">{progress}%</p>
         </div>
       ) : (
-        <>
-          <div className="text-3xl mb-3">📸</div>
+        <div className="flex flex-col items-center justify-center">
+          <Screenshot className="w-16 h-16 mb-4 text-muted-foreground" />
           <p className="text-base font-medium mb-1">
             이미지를 드래그하거나 클릭하여 업로드
           </p>
@@ -231,7 +232,7 @@ export function ImageUploader({ projectId, onUploadComplete, disabled }: ImageUp
               <span>파일 선택</span>
             </Button>
           </label>
-        </>
+        </div>
       )}
     </div>
   )

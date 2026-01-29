@@ -1,0 +1,29 @@
+import { forwardRef } from 'react'
+import type { IconProps } from '../_IconBase'
+
+const Loading = forwardRef<SVGSVGElement, IconProps>(
+  ({ size = 24, className, secondaryOpacity = 0.4, ...props }, ref) => (
+    <svg
+      ref={ref}
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      className={className}
+      {...props}
+    >
+      <g transform="translate(2.38, 1.7) scale(0.098)">
+        <g className="duotone-secondary" opacity={secondaryOpacity} fill="currentColor">
+          <path d="M204.138,102.579c-.397-7.728-5.609-13.802-13.238-14.715-8.068-.966-13.837,4.491-16.584,11.815-1.207-37.674-31.154-68.1-68.804-69.905,6.413-2.399,10.916-7.11,11.393-13.735.513-7.124-3.55-12.253-9.434-15.895,54.393,2.882,96.939,47.967,96.667,102.435Z"/>
+        </g>
+        <g className="duotone-primary" fill="currentColor">
+          <path d="M107.471.144c5.885,3.642,9.947,8.771,9.434,15.895-.477,6.625-4.979,11.337-11.393,13.735-29.737-1.426-57.308,15.521-69.464,42.697-12.156,27.176-6.413,59.025,14.47,80.243,20.883,21.218,52.637,27.466,80.003,15.743s44.748-39.022,43.794-68.778c2.746-7.324,8.516-12.781,16.584-11.815,7.629.913,12.841,6.987,13.238,14.715-.208,41.728-25.796,79.127-64.614,94.439-38.818,15.312-83.047,5.453-111.686-24.896S-8.084,97.048,9.45,59.182,65.801-2.064,107.471.144Z"/>
+        </g>
+      </g>
+    </svg>
+  )
+)
+
+Loading.displayName = 'Loading'
+export { Loading }

@@ -20,6 +20,7 @@ import { PlaceSearchInput } from './PlaceSearchInput'
 import { usePlaceSearch } from '@/hooks/queries/usePlaceSearch'
 import { CATEGORY_STYLES, type PlaceCategory } from '@/lib/constants'
 import { cn } from '@/lib/utils'
+import { Star } from '@/components/icons'
 import type {
   PlaceSearchPrediction,
   PlaceSearchDetails,
@@ -237,7 +238,7 @@ export function PlaceSearchModal({
                 {/* Rating */}
                 {placeDetails.rating && (
                   <div className="flex items-center gap-1 mt-2">
-                    <span className="text-yellow-500">★</span>
+                    <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
                     <span className="text-sm font-medium">
                       {placeDetails.rating.toFixed(1)}
                     </span>
@@ -280,7 +281,7 @@ export function PlaceSearchModal({
                   {Object.entries(CATEGORY_STYLES).map(([key, style]) => (
                     <SelectItem key={key} value={key}>
                       <span className="flex items-center gap-2">
-                        <span>{style.icon}</span>
+                        <style.Icon className="w-3.5 h-3.5" />
                         <span>{style.label}</span>
                       </span>
                     </SelectItem>

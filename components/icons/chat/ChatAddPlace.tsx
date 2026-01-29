@@ -1,0 +1,29 @@
+import { forwardRef } from 'react'
+import type { IconProps } from '../_IconBase'
+
+const ChatAddPlace = forwardRef<SVGSVGElement, IconProps>(
+  ({ size = 24, className, secondaryOpacity = 0.4, ...props }, ref) => (
+    <svg
+      ref={ref}
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      className={className}
+      {...props}
+    >
+      <g transform="translate(3.94, 2.07) scale(0.0684)">
+        <g className="duotone-secondary" opacity={secondaryOpacity} fill="currentColor">
+          <path d="M128.924,292.684c-5.235,5.154-14.728,6.214-20.367.858-21.991-20.883-41.929-43.057-60.24-67.369C28.26,199.544,2.339,158.762.241,125.652-4.431,51.913,59.57-8.281,132.826.935c61.555,7.744,107.516,62.784,103.158,125.183-2.357,33.742-28.722,74.75-49.094,101.598-17.727,23.362-37.05,44.375-57.966,64.968ZM203.117,117.196c0-46.938-38.051-84.989-84.989-84.989S33.138,70.257,33.138,117.196s38.051,84.989,84.989,84.989,84.989-38.051,84.989-84.989Z"/>
+        </g>
+        <g className="duotone-primary" fill="currentColor">
+          <path d="M130.817,164.181c-.062,7.538-7.47,11.631-13.415,11.293-6.268-.357-12.062-5.353-12.094-12.242l-.156-33.126-32.341-.089c-7.565-.021-13.233-6.039-13.153-12.86.091-7.735,6.188-12.89,14.108-12.871l31.339.076.254-33.223c.059-7.789,7-12.809,13.874-12.374,7.738.489,11.809,7,11.807,14.821l-.007,30.662,33.723.244c7.071.051,11.817,6.634,11.89,12.592.08,6.598-5.117,12.798-12.506,12.858l-33.044.269-.279,33.971Z"/>
+        </g>
+      </g>
+    </svg>
+  )
+)
+
+ChatAddPlace.displayName = 'ChatAddPlace'
+export { ChatAddPlace }

@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/select'
 import type { Accommodation } from '@/infrastructure/api-client/itinerary.api'
 import type { Place } from '@/types'
+import { Hotel, ChevronDown, ChevronRight, MapPin, Plus } from '@/lib/icons'
 
 interface AccommodationSectionProps {
   accommodations: Accommodation[]
@@ -207,11 +208,13 @@ export function AccommodationSection({
       {/* Collapsible Header */}
       <div className="flex items-center justify-between">
         <CollapsibleTrigger className="flex items-center gap-2 hover:bg-gray-50 rounded px-2 py-1 -ml-2 transition-colors">
-          <span className="text-xs text-muted-foreground">
-            {isExpanded ? '▼' : '▶'}
-          </span>
+          {isExpanded ? (
+            <ChevronDown className="w-4 h-4 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+          )}
           <h3 className="font-medium text-sm flex items-center gap-2">
-            <span>🏨</span> 숙소
+            <Hotel className="w-4 h-4 text-emerald-500" /> 숙소
             {accommodations.length > 0 && (
               <span className="text-xs text-muted-foreground bg-gray-100 px-1.5 py-0.5 rounded">
                 {accommodations.length}
@@ -229,7 +232,7 @@ export function AccommodationSection({
           disabled={isLoading || accommodationPlaces.length === 0}
           title={accommodationPlaces.length === 0 ? '장소 탭에서 숙소를 먼저 추가하세요' : undefined}
         >
-          + 추가
+          <Plus className="w-4 h-4" /> 추가
         </Button>
       </div>
 
@@ -271,7 +274,7 @@ export function AccommodationSection({
                       </div>
                       {accommodation.address && (
                         <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                          📍 {accommodation.address}
+                          <MapPin className="w-3 h-3 inline mr-0.5" />{accommodation.address}
                         </p>
                       )}
                       {accommodation.note && (
