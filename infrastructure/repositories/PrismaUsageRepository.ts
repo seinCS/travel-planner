@@ -120,6 +120,16 @@ class PrismaUsageRepository implements IUsageRepository {
       thisMonth: monthUsage._sum.count || 0,
     }
   }
+
+  async countRecentUserMessages(userId: string, since: Date): Promise<number> {
+    return prisma.chatMessage.count({
+      where: {
+        session: { userId },
+        role: 'user',
+        createdAt: { gte: since },
+      },
+    })
+  }
 }
 
 export const usageRepository = new PrismaUsageRepository()

@@ -19,4 +19,5 @@ export interface IImageRepository {
   findById(id: string): Promise<Image | null>
   update(id: string, data: UpdateImageData): Promise<Image>
   resetToPending(ids: string[]): Promise<void>
+  linkToPlace(imageId: string, placeId: string): Promise<void>
 }

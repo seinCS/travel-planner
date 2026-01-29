@@ -7,7 +7,7 @@
 
 import type { PlaceExtractionResult } from '@/lib/claude'
 import { analyzeText } from '@/lib/claude'
-import { prisma } from '@/lib/db'
+import type { ITextInputRepository } from '@/domain/interfaces/ITextInputRepository'
 import {
   ProcessItemsBaseUseCase,
   type ProcessableItem,
@@ -33,6 +33,13 @@ interface PrismaTextInput {
 }
 
 export class ProcessTextInputsUseCase extends ProcessItemsBaseUseCase<ProcessableTextInput> {
+  constructor(
+    private readonly textInputRepository: ITextInputRepository,
+    confidenceThreshold: number = 0.5
+  ) {
+    super(confidenceThreshold)
+  }
+
   protected getItemTypeName(): 'images' | 'text inputs' {
     return 'text inputs'
   }
@@ -59,19 +66,7 @@ export class ProcessTextInputsUseCase extends ProcessItemsBaseUseCase<Processabl
   }
 
   protected async linkItemToPlace(textInputId: string, placeId: string): Promise<void> {
-    await prisma.placeTextInput.upsert({
-      where: {
-        placeId_textInputId: {
-          placeId,
-          textInputId,
-        },
-      },
-      update: {},
-      create: {
-        placeId,
-        textInputId,
-      },
-    })
+    await this.textInputRepository.linkToPlace(textInputId, placeId)
   }
 
   protected async updateItemStatus(
@@ -81,12 +76,9 @@ export class ProcessTextInputsUseCase extends ProcessItemsBaseUseCase<Processabl
     errorMessage?: string
   ): Promise<void> {
     // TextInput doesn't have rawText field
-    await prisma.textInput.update({
-      where: { id: item.id },
-      data: {
-        status,
-        errorMessage: errorMessage ?? null,
-      },
+    await this.textInputRepository.update(item.id, {
+      status,
+      errorMessage: errorMessage ?? null,
     })
   }
 }

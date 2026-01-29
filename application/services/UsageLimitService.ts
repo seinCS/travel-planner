@@ -20,7 +20,6 @@
  * Current implementation is suitable for Korean-focused service.
  */
 
-import { prisma } from '@/lib/db'
 import type { IUsageRepository } from '@/domain/interfaces/IUsageRepository'
 import { logger } from '@/lib/logger'
 
@@ -102,13 +101,7 @@ export class UsageLimitService {
   private async checkMinuteLimit(userId: string): Promise<{ allowed: boolean; count: number }> {
     const oneMinuteAgo = new Date(Date.now() - 60 * 1000)
 
-    const recentCount = await prisma.chatMessage.count({
-      where: {
-        session: { userId },
-        role: 'user',
-        createdAt: { gte: oneMinuteAgo },
-      },
-    })
+    const recentCount = await this.usageRepository.countRecentUserMessages(userId, oneMinuteAgo)
 
     return {
       allowed: recentCount < MINUTE_LIMIT,

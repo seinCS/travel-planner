@@ -18,4 +18,5 @@ export interface ITextInputRepository {
   findById(id: string): Promise<TextInput | null>
   update(id: string, data: UpdateTextInputData): Promise<TextInput>
   resetToPending(ids: string[]): Promise<void>
+  linkToPlace(textInputId: string, placeId: string): Promise<void>
 }

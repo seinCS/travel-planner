@@ -7,7 +7,7 @@
 
 import type { PlaceExtractionResult } from '@/lib/claude'
 import { analyzeImage } from '@/lib/claude'
-import { prisma } from '@/lib/db'
+import type { IImageRepository } from '@/domain/interfaces/IImageRepository'
 import {
   ProcessItemsBaseUseCase,
   type ProcessableItem,
@@ -29,6 +29,13 @@ interface PrismaImage {
 }
 
 export class ProcessImagesUseCase extends ProcessItemsBaseUseCase<ProcessableImage> {
+  constructor(
+    private readonly imageRepository: IImageRepository,
+    confidenceThreshold: number = 0.5
+  ) {
+    super(confidenceThreshold)
+  }
+
   protected getItemTypeName(): 'images' | 'text inputs' {
     return 'images'
   }
@@ -55,19 +62,7 @@ export class ProcessImagesUseCase extends ProcessItemsBaseUseCase<ProcessableIma
   }
 
   protected async linkItemToPlace(imageId: string, placeId: string): Promise<void> {
-    await prisma.placeImage.upsert({
-      where: {
-        placeId_imageId: {
-          placeId,
-          imageId,
-        },
-      },
-      update: {},
-      create: {
-        placeId,
-        imageId,
-      },
-    })
+    await this.imageRepository.linkToPlace(imageId, placeId)
   }
 
   protected async updateItemStatus(
@@ -76,13 +71,10 @@ export class ProcessImagesUseCase extends ProcessItemsBaseUseCase<ProcessableIma
     rawText?: string,
     errorMessage?: string
   ): Promise<void> {
-    await prisma.image.update({
-      where: { id: item.id },
-      data: {
-        status,
-        rawText: rawText ?? undefined,
-        errorMessage: errorMessage ?? null,
-      },
+    await this.imageRepository.update(item.id, {
+      status,
+      rawText,
+      errorMessage: errorMessage ?? null,
     })
   }
 }

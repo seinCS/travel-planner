@@ -30,4 +30,9 @@ export interface IUsageRepository {
     thisWeek: number
     thisMonth: number
   }>
+
+  /**
+   * Count recent user messages within a time window (for rate limiting)
+   */
+  countRecentUserMessages(userId: string, since: Date): Promise<number>
 }

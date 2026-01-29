@@ -41,6 +41,22 @@ export class PrismaImageRepository implements IImageRepository {
       data: { status: 'pending', errorMessage: null },
     })
   }
+
+  async linkToPlace(imageId: string, placeId: string): Promise<void> {
+    await prisma.placeImage.upsert({
+      where: {
+        placeId_imageId: {
+          placeId,
+          imageId,
+        },
+      },
+      update: {},
+      create: {
+        placeId,
+        imageId,
+      },
+    })
+  }
 }
 
 /**

@@ -40,6 +40,22 @@ export class PrismaTextInputRepository implements ITextInputRepository {
       data: { status: 'pending', errorMessage: null },
     })
   }
+
+  async linkToPlace(textInputId: string, placeId: string): Promise<void> {
+    await prisma.placeTextInput.upsert({
+      where: {
+        placeId_textInputId: {
+          placeId,
+          textInputId,
+        },
+      },
+      update: {},
+      create: {
+        placeId,
+        textInputId,
+      },
+    })
+  }
 }
 
 /**
