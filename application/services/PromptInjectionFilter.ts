@@ -60,9 +60,9 @@ const INJECTION_PATTERNS: Array<{ pattern: RegExp; name: string }> = [
   // Base64 encoded payloads - stricter detection
   // Only match strings that:
   // 1. Have 60+ chars (enough to encode meaningful payload)
-  // 2. MUST end with proper Base64 padding (= or ==) to reduce false positives
-  // 3. This avoids blocking normal text like "ABCDEFGHIJKLMNOPQRST"
-  { pattern: /(?:[A-Za-z0-9+/]{4}){15,}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)/, name: 'base64_payload' },
+  // 2. End with proper Base64 padding (=, ==, or valid chars for URL-safe base64)
+  // 3. Supports both standard (+/) and URL-safe (-_) Base64 variants
+  { pattern: /(?:[A-Za-z0-9+/\-_]{4}){15,}(?:[A-Za-z0-9+/\-_]{2}={0,2}|[A-Za-z0-9+/\-_]{3}=?)/, name: 'base64_payload' },
 
   // Delimiter manipulation
   { pattern: /```.*system/i, name: 'code_block_system' },

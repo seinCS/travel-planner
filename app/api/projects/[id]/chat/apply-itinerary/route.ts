@@ -105,13 +105,14 @@ export async function POST(
             const dayDate = new Date(startDate)
             dayDate.setDate(dayDate.getDate() + day.dayNumber - 1)
 
-            // Match places by name
+            // Match places by name (normalize and trim for consistent matching)
             const itemsData = []
             for (const item of day.items) {
+              const normalizedPlaceName = item.placeName.trim()
               const place = await prisma.place.findFirst({
                 where: {
                   projectId,
-                  name: { equals: item.placeName, mode: 'insensitive' },
+                  name: { equals: normalizedPlaceName, mode: 'insensitive' },
                 },
                 select: { id: true },
               })

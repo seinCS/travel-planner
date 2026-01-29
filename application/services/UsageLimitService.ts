@@ -20,16 +20,16 @@
  * Current implementation is suitable for Korean-focused service.
  */
 
-import { prisma } from '@/lib/db'
 import type { IUsageRepository } from '@/domain/interfaces/IUsageRepository'
 import { logger } from '@/lib/logger'
 
-/** User's daily message limit */
-const DAILY_LIMIT = 50
-/** Messages per minute rate limit */
-const MINUTE_LIMIT = 10
-/** Global daily limit across all users (cost control) */
-const GLOBAL_DAILY_LIMIT = 10000
+/**
+ * Usage limits - configurable via environment variables
+ * Defaults are set for reasonable production usage
+ */
+const DAILY_LIMIT = parseInt(process.env.CHAT_DAILY_LIMIT || '50', 10)
+const MINUTE_LIMIT = parseInt(process.env.CHAT_MINUTE_LIMIT || '10', 10)
+const GLOBAL_DAILY_LIMIT = parseInt(process.env.CHAT_GLOBAL_DAILY_LIMIT || '10000', 10)
 
 export interface LimitCheckResult {
   allowed: boolean
@@ -102,13 +102,7 @@ export class UsageLimitService {
   private async checkMinuteLimit(userId: string): Promise<{ allowed: boolean; count: number }> {
     const oneMinuteAgo = new Date(Date.now() - 60 * 1000)
 
-    const recentCount = await prisma.chatMessage.count({
-      where: {
-        session: { userId },
-        role: 'user',
-        createdAt: { gte: oneMinuteAgo },
-      },
-    })
+    const recentCount = await this.usageRepository.countRecentUserMessages(userId, oneMinuteAgo)
 
     return {
       allowed: recentCount < MINUTE_LIMIT,

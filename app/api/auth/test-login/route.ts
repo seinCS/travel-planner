@@ -17,8 +17,9 @@ const TEST_USER = {
 }
 
 export async function POST() {
-  // 테스트 모드가 아니면 거부
-  if (process.env.E2E_TEST_MODE !== 'true') {
+  // 프로덕션 환경 또는 테스트 모드가 아니면 거부
+  // 이중 체크로 프로덕션 환경에서 실수로 E2E_TEST_MODE가 설정되어도 차단
+  if (process.env.NODE_ENV === 'production' || process.env.E2E_TEST_MODE !== 'true') {
     return NextResponse.json(
       { error: 'This endpoint is only available in E2E test mode' },
       { status: 404 }
@@ -57,10 +58,10 @@ export async function POST() {
     // 세션 쿠키 설정
     const cookieStore = await cookies()
 
-    // next-auth.session-token 쿠키 설정 (개발 환경)
+    // next-auth.session-token 쿠키 설정 (테스트 환경 전용 - 프로덕션에서는 도달 불가)
     cookieStore.set('next-auth.session-token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: false, // 테스트 환경에서만 사용되므로 secure 불필요
       sameSite: 'lax',
       path: '/',
       maxAge: 60 * 60 * 24, // 24시간
@@ -84,8 +85,8 @@ export async function POST() {
 }
 
 export async function DELETE() {
-  // 테스트 모드가 아니면 거부
-  if (process.env.E2E_TEST_MODE !== 'true') {
+  // 프로덕션 환경 또는 테스트 모드가 아니면 거부
+  if (process.env.NODE_ENV === 'production' || process.env.E2E_TEST_MODE !== 'true') {
     return NextResponse.json(
       { error: 'This endpoint is only available in E2E test mode' },
       { status: 404 }

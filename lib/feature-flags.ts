@@ -30,7 +30,10 @@ export function isChatbotEnabled(userId?: string): boolean {
     return true
   }
   if (rolloutPercent <= 0) {
-    return betaUsers.length > 0 ? false : true // If no beta users, default to enabled
+    // When rollout is 0%:
+    // - If beta users are defined, only beta users have access (non-beta users blocked)
+    // - If no beta users defined, enable for all (assumes testing/dev environment)
+    return betaUsers.length > 0 ? false : true
   }
 
   // Consistent hash based on userId
