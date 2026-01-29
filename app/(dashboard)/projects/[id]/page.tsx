@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, use } from 'react'
+import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Screenshot, Location } from '@/components/icons'
 import { useRealtimeSync } from '@/hooks/realtime'
 import { PresenceIndicator } from '@/components/realtime'
 import { RealtimeProvider } from '@/contexts/RealtimeContext'
@@ -52,7 +53,9 @@ import { MainTabNavigation, MainTab } from '@/components/layout/MainTabNavigatio
 import { PlacesLayout } from '@/components/layout/PlacesLayout'
 import { ItineraryLayout } from '@/components/layout/ItineraryLayout'
 import { MembersPanel } from '@/components/members/MembersPanel'
+import { ExportButton } from '@/components/export'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { useItinerary } from '@/hooks/queries/useItinerary'
 import { useProjectDetail } from './_hooks/useProjectDetail'
 import { useSession } from 'next-auth/react'
 import type { Place, Image } from '@/types'
@@ -87,6 +90,9 @@ function ProjectContent({ projectId }: ProjectContentProps) {
 
   // Realtime collaboration sync (SWR cache invalidation)
   const { isConnected } = useRealtimeSync(id)
+
+  // Itinerary data for export
+  const { itinerary } = useItinerary(id)
 
   // Consolidated data and actions from hook
   const {
@@ -184,8 +190,13 @@ function ProjectContent({ projectId }: ProjectContentProps) {
   }
 
   // Redirect if project not found
+  useEffect(() => {
+    if (!isLoading && !project) {
+      router.push('/projects')
+    }
+  }, [isLoading, project, router])
+
   if (!isLoading && !project) {
-    router.push('/projects')
     return null
   }
 
@@ -228,7 +239,7 @@ function ProjectContent({ projectId }: ProjectContentProps) {
             <div className="hidden lg:flex gap-2">
               {(pendingImageCount > 0 || failedImageCount > 0) && (
                 <Button onClick={() => processImages()} disabled={processing || processingText}>
-                  {processing ? '처리 중...' : `📸 이미지 분석 (${pendingImageCount + failedImageCount})`}
+                  {processing ? '처리 중...' : <><Screenshot className="w-4 h-4 inline" /> 이미지 분석 ({pendingImageCount + failedImageCount})</>}
                 </Button>
               )}
               {(pendingTextCount > 0 || failedTextCount > 0) && (
@@ -254,6 +265,13 @@ function ProjectContent({ projectId }: ProjectContentProps) {
                 </Button>
               )}
             </div>
+          )}
+          {project && (
+            <ExportButton
+              projectId={id}
+              projectName={project.name}
+              days={itinerary?.days}
+            />
           )}
           <Button variant="outline" size="sm" className="lg:size-auto" onClick={() => setIsShareModalOpen(true)}>
             공유
@@ -302,7 +320,7 @@ function ProjectContent({ projectId }: ProjectContentProps) {
             <div className="flex-1 glass-card p-4 overflow-hidden flex flex-col">
               {/* Header with search button */}
               <div className="flex items-center justify-between mb-3 flex-shrink-0">
-                <h2 className="font-semibold text-gray-800">📍 장소 목록 ({places.length}개)</h2>
+                <h2 className="font-semibold text-gray-800 flex items-center gap-1.5"><Location className="w-4 h-4" /> 장소 목록 ({places.length}개)</h2>
                 <Button
                   size="sm"
                   variant="outline"

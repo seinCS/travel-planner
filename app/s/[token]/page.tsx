@@ -5,6 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { CATEGORY_STYLES } from '@/lib/constants'
+import { Star } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -227,7 +228,7 @@ export default function SharePage({ params }: SharePageProps) {
                     color: style.color,
                   }}
                 >
-                  {style.icon}
+                  <style.Icon className="w-3.5 h-3.5" />
                 </span>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
@@ -248,7 +249,7 @@ export default function SharePage({ params }: SharePageProps) {
 
                   {place.rating && (
                     <div className="flex items-center gap-1 mt-1">
-                      <span className="text-yellow-500 text-xs">★</span>
+                      <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
                       <span className="text-xs">{place.rating.toFixed(1)}</span>
                       {place.userRatingsTotal && (
                         <span className="text-xs text-muted-foreground">
@@ -317,7 +318,7 @@ export default function SharePage({ params }: SharePageProps) {
                 backgroundColor: categoryFilter === key ? style.color : undefined,
               }}
             >
-              {style.icon} {style.label} ({count})
+              <style.Icon className="w-3.5 h-3.5" /> {style.label} ({count})
             </Button>
           )
         })}

@@ -39,6 +39,13 @@ export function isChatbotEnabled(userId?: string): boolean {
 }
 
 /**
+ * Check if Function Calling is enabled for chat
+ */
+export function isFunctionCallingEnabled(_userId?: string): boolean {
+  return process.env.CHATBOT_FUNCTION_CALLING_ENABLED === 'true'
+}
+
+/**
  * Simple string hash function for consistent percentage rollout
  */
 function hashString(str: string): number {

@@ -278,3 +278,9 @@ export interface UpdateAccommodationInput {
   confirmationNumber?: string
   note?: string
 }
+
+// ========================================
+// Route/Distance 관련 타입
+// ========================================
+
+export * from './route'

@@ -2,6 +2,7 @@
  * useItineraryMutations Hook
  *
  * Provides mutation functions for itinerary operations.
+ * Uses direct SWR cache updates from API responses instead of full revalidation.
  */
 
 import { useState, useCallback } from 'react'
@@ -17,16 +18,39 @@ import {
   type UpdateFlightInput,
   type CreateAccommodationInput,
   type UpdateAccommodationInput,
+  type ItineraryWithDetails,
+  type ItineraryItem,
+  type Flight,
+  type Accommodation,
 } from '@/infrastructure/api-client/itinerary.api'
+
+type ItineraryCache = { itinerary: ItineraryWithDetails | null } | undefined
 
 export function useItineraryMutations(projectId: string) {
   const { mutate } = useSWRConfig()
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<Error | null>(null)
 
+  const cacheKey = `/projects/${projectId}/itinerary`
+
   const revalidateItinerary = useCallback(() => {
-    return mutate(`/projects/${projectId}/itinerary`)
-  }, [projectId, mutate])
+    return mutate(cacheKey)
+  }, [cacheKey, mutate])
+
+  // Helper: update SWR cache with an updater function (no revalidation)
+  const updateCache = useCallback(
+    (updater: (data: ItineraryWithDetails) => ItineraryWithDetails) => {
+      return mutate(
+        cacheKey,
+        (currentData: ItineraryCache) => {
+          if (!currentData?.itinerary) return currentData
+          return { itinerary: updater(currentData.itinerary) }
+        },
+        { revalidate: false }
+      )
+    },
+    [cacheKey, mutate]
+  )
 
   // =========================================================================
   // Itinerary CRUD
@@ -38,7 +62,8 @@ export function useItineraryMutations(projectId: string) {
       setError(null)
       try {
         const result = await itineraryApi.create(projectId, data)
-        await revalidateItinerary()
+        // Create returns full itinerary with details - set directly
+        await mutate(cacheKey, result, { revalidate: false })
         return result.itinerary
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to create itinerary')
@@ -48,7 +73,7 @@ export function useItineraryMutations(projectId: string) {
         setIsLoading(false)
       }
     },
-    [projectId, revalidateItinerary]
+    [projectId, cacheKey, mutate]
   )
 
   const updateItinerary = useCallback(
@@ -57,7 +82,8 @@ export function useItineraryMutations(projectId: string) {
       setError(null)
       try {
         const result = await itineraryApi.update(projectId, data)
-        await revalidateItinerary()
+        // Update returns full itinerary with details - set directly
+        await mutate(cacheKey, result, { revalidate: false })
         return result.itinerary
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to update itinerary')
@@ -67,7 +93,7 @@ export function useItineraryMutations(projectId: string) {
         setIsLoading(false)
       }
     },
-    [projectId, revalidateItinerary]
+    [projectId, cacheKey, mutate]
   )
 
   const deleteItinerary = useCallback(async () => {
@@ -75,8 +101,7 @@ export function useItineraryMutations(projectId: string) {
     setError(null)
     try {
       await itineraryApi.delete(projectId)
-      // Immediately set cache to null (no revalidation needed after delete)
-      await mutate(`/projects/${projectId}/itinerary`, { itinerary: null }, false)
+      await mutate(cacheKey, { itinerary: null }, { revalidate: false })
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Failed to delete itinerary')
       setError(error)
@@ -84,7 +109,7 @@ export function useItineraryMutations(projectId: string) {
     } finally {
       setIsLoading(false)
     }
-  }, [projectId, mutate])
+  }, [projectId, cacheKey, mutate])
 
   // =========================================================================
   // Itinerary Items
@@ -94,19 +119,70 @@ export function useItineraryMutations(projectId: string) {
     async (itineraryId: string, data: CreateItineraryItemInput) => {
       setIsLoading(true)
       setError(null)
+
+      // Optimistic update with temporary item
+      const tempId = `temp-${Date.now()}`
+      const now = new Date()
+      const optimisticItem: ItineraryItem & { isOptimistic?: boolean } = {
+        id: tempId,
+        dayId: data.dayId,
+        placeId: data.placeId,
+        accommodationId: null,
+        itemType: 'place',
+        order: data.order ?? 999,
+        startTime: data.startTime ?? null,
+        note: data.note ?? null,
+        place: null,
+        accommodation: null,
+        createdAt: now,
+        updatedAt: now,
+        isOptimistic: true,
+      }
+
+      await updateCache((itinerary) => ({
+        ...itinerary,
+        days: itinerary.days.map((day) =>
+          day.id === data.dayId
+            ? { ...day, items: [...day.items, optimisticItem] }
+            : day
+        ),
+      }))
+
       try {
         const result = await itineraryApi.addItem(itineraryId, data)
-        await revalidateItinerary()
+        // Replace optimistic item with real item from API response
+        await updateCache((itinerary) => ({
+          ...itinerary,
+          days: itinerary.days.map((day) =>
+            day.id === data.dayId
+              ? {
+                  ...day,
+                  items: day.items.map((item) =>
+                    item.id === tempId ? { ...result.item, accommodation: null } : item
+                  ),
+                }
+              : day
+          ),
+        }))
         return result.item
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to add item')
         setError(error)
+        // Rollback - remove optimistic item
+        await updateCache((itinerary) => ({
+          ...itinerary,
+          days: itinerary.days.map((day) =>
+            day.id === data.dayId
+              ? { ...day, items: day.items.filter((item) => item.id !== tempId) }
+              : day
+          ),
+        }))
         throw error
       } finally {
         setIsLoading(false)
       }
     },
-    [revalidateItinerary]
+    [updateCache]
   )
 
   const updateItem = useCallback(
@@ -115,7 +191,18 @@ export function useItineraryMutations(projectId: string) {
       setError(null)
       try {
         const result = await itineraryApi.updateItem(itemId, data)
-        await revalidateItinerary()
+        // Update the specific item in cache
+        await updateCache((itinerary) => ({
+          ...itinerary,
+          days: itinerary.days.map((day) => ({
+            ...day,
+            items: day.items.map((item) =>
+              item.id === itemId
+                ? { ...item, ...result.item, accommodation: item.accommodation }
+                : item
+            ),
+          })),
+        }))
         return result.item
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to update item')
@@ -125,7 +212,7 @@ export function useItineraryMutations(projectId: string) {
         setIsLoading(false)
       }
     },
-    [revalidateItinerary]
+    [updateCache]
   )
 
   const deleteItem = useCallback(
@@ -134,7 +221,14 @@ export function useItineraryMutations(projectId: string) {
       setError(null)
       try {
         await itineraryApi.deleteItem(itemId)
-        await revalidateItinerary()
+        // Remove item from cache
+        await updateCache((itinerary) => ({
+          ...itinerary,
+          days: itinerary.days.map((day) => ({
+            ...day,
+            items: day.items.filter((item) => item.id !== itemId),
+          })),
+        }))
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to delete item')
         setError(error)
@@ -143,7 +237,7 @@ export function useItineraryMutations(projectId: string) {
         setIsLoading(false)
       }
     },
-    [revalidateItinerary]
+    [updateCache]
   )
 
   const reorderItems = useCallback(
@@ -151,17 +245,34 @@ export function useItineraryMutations(projectId: string) {
       setIsLoading(true)
       setError(null)
       try {
-        await itineraryApi.reorderItems(itineraryId, dayId, itemIds)
-        await revalidateItinerary()
+        const result = await itineraryApi.reorderItems(itineraryId, dayId, itemIds)
+        // Replace items for the specific day with reordered items from API
+        await updateCache((itinerary) => ({
+          ...itinerary,
+          days: itinerary.days.map((day) =>
+            day.id === dayId
+              ? {
+                  ...day,
+                  items: result.items.map((apiItem) => {
+                    const existingItem = day.items.find((i) => i.id === apiItem.id)
+                    return existingItem
+                      ? { ...existingItem, order: apiItem.order }
+                      : { ...apiItem, accommodation: null }
+                  }),
+                }
+              : day
+          ),
+        }))
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to reorder items')
         setError(error)
+        await revalidateItinerary()
         throw error
       } finally {
         setIsLoading(false)
       }
     },
-    [revalidateItinerary]
+    [updateCache, revalidateItinerary]
   )
 
   const moveItemToDay = useCallback(
@@ -170,17 +281,47 @@ export function useItineraryMutations(projectId: string) {
       setError(null)
       try {
         const result = await itineraryApi.moveItemToDay(itemId, data)
-        await revalidateItinerary()
+        // Move item between days in cache
+        await updateCache((itinerary) => {
+          let movedItem: ItineraryItem | undefined
+          const updatedDays = itinerary.days.map((day) => {
+            const itemInDay = day.items.find((i) => i.id === itemId)
+            if (itemInDay) {
+              movedItem = itemInDay
+              return { ...day, items: day.items.filter((i) => i.id !== itemId) }
+            }
+            return day
+          })
+
+          if (!movedItem) return itinerary
+
+          const updatedItem: ItineraryItem = {
+            ...movedItem,
+            ...result.item,
+            accommodation: movedItem.accommodation,
+            dayId: data.targetDayId,
+          }
+
+          return {
+            ...itinerary,
+            days: updatedDays.map((day) =>
+              day.id === data.targetDayId
+                ? { ...day, items: [...day.items, updatedItem].sort((a, b) => a.order - b.order) }
+                : day
+            ),
+          }
+        })
         return result.item
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to move item')
         setError(error)
+        await revalidateItinerary()
         throw error
       } finally {
         setIsLoading(false)
       }
     },
-    [revalidateItinerary]
+    [updateCache, revalidateItinerary]
   )
 
   // =========================================================================
@@ -193,7 +334,10 @@ export function useItineraryMutations(projectId: string) {
       setError(null)
       try {
         const result = await itineraryApi.addFlight(itineraryId, data)
-        await revalidateItinerary()
+        await updateCache((itinerary) => ({
+          ...itinerary,
+          flights: [...itinerary.flights, result.flight],
+        }))
         return result.flight
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to add flight')
@@ -203,7 +347,7 @@ export function useItineraryMutations(projectId: string) {
         setIsLoading(false)
       }
     },
-    [revalidateItinerary]
+    [updateCache]
   )
 
   const updateFlight = useCallback(
@@ -212,7 +356,12 @@ export function useItineraryMutations(projectId: string) {
       setError(null)
       try {
         const result = await itineraryApi.updateFlight(flightId, data)
-        await revalidateItinerary()
+        await updateCache((itinerary) => ({
+          ...itinerary,
+          flights: itinerary.flights.map((f) =>
+            f.id === flightId ? result.flight : f
+          ),
+        }))
         return result.flight
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to update flight')
@@ -222,7 +371,7 @@ export function useItineraryMutations(projectId: string) {
         setIsLoading(false)
       }
     },
-    [revalidateItinerary]
+    [updateCache]
   )
 
   const deleteFlight = useCallback(
@@ -231,7 +380,10 @@ export function useItineraryMutations(projectId: string) {
       setError(null)
       try {
         await itineraryApi.deleteFlight(flightId)
-        await revalidateItinerary()
+        await updateCache((itinerary) => ({
+          ...itinerary,
+          flights: itinerary.flights.filter((f) => f.id !== flightId),
+        }))
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to delete flight')
         setError(error)
@@ -240,7 +392,7 @@ export function useItineraryMutations(projectId: string) {
         setIsLoading(false)
       }
     },
-    [revalidateItinerary]
+    [updateCache]
   )
 
   // =========================================================================
@@ -253,6 +405,8 @@ export function useItineraryMutations(projectId: string) {
       setError(null)
       try {
         const result = await itineraryApi.addAccommodation(itineraryId, data)
+        // Accommodation creation also creates itinerary items via sync service,
+        // so we need full revalidation to get the new items
         await revalidateItinerary()
         return result.accommodation
       } catch (err) {
@@ -272,7 +426,17 @@ export function useItineraryMutations(projectId: string) {
       setError(null)
       try {
         const result = await itineraryApi.updateAccommodation(accommodationId, data)
-        await revalidateItinerary()
+        // If dates changed, sync service modifies itinerary items too
+        if (data.checkIn !== undefined || data.checkOut !== undefined) {
+          await revalidateItinerary()
+        } else {
+          await updateCache((itinerary) => ({
+            ...itinerary,
+            accommodations: itinerary.accommodations.map((a) =>
+              a.id === accommodationId ? result.accommodation : a
+            ),
+          }))
+        }
         return result.accommodation
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to update accommodation')
@@ -282,7 +446,7 @@ export function useItineraryMutations(projectId: string) {
         setIsLoading(false)
       }
     },
-    [revalidateItinerary]
+    [updateCache, revalidateItinerary]
   )
 
   const deleteAccommodation = useCallback(
@@ -291,6 +455,7 @@ export function useItineraryMutations(projectId: string) {
       setError(null)
       try {
         await itineraryApi.deleteAccommodation(accommodationId)
+        // Deletion cascades to itinerary items, so revalidate to sync
         await revalidateItinerary()
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to delete accommodation')
