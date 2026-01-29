@@ -1,0 +1,30 @@
+import { forwardRef } from 'react'
+import type { IconProps } from '../_IconBase'
+
+const TabImage = forwardRef<SVGSVGElement, IconProps>(
+  ({ size = 24, className, secondaryOpacity = 0.4, ...props }, ref) => (
+    <svg
+      ref={ref}
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      className={className}
+      {...props}
+    >
+      <g transform="translate(1.5, 1.53) scale(0.1491)">
+        <g className="duotone-secondary" opacity={secondaryOpacity} fill="currentColor">
+          <path d="M11.471,76.964l32.937-35.875c1.963-2.153,5.431-2.153,7.381-.072l31.093,33.179,14.048-13.778c2.267-2.155,5.807-1.875,8.037.29l23.588,22.892,1.069-70.501-.029,85.771-118.132-.04.007-21.865Z"/>
+<circle cx="91.828" cy="34.38" r="9.787"/>
+        </g>
+        <g className="duotone-primary" fill="currentColor">
+          <path d="M129.099,140.499l-116.431.026c-6.702.002-12.627-5.027-12.629-11.888l-.038-117.1C.719,5.514,5.038.109,11.639.103L127.546,0c7.099-.006,13.273,4.595,13.276,12.117l.042,115.884c.002,6.821-4.534,11.706-11.765,12.497ZM11.464,98.828l118.132.04.03-87.158-118.132-.04-.03,87.158Z"/>
+        </g>
+      </g>
+    </svg>
+  )
+)
+
+TabImage.displayName = 'TabImage'
+export { TabImage }

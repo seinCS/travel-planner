@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { format } from 'date-fns'
 import { ko } from 'date-fns/locale'
 import { toast } from 'sonner'
@@ -9,17 +9,32 @@ import { ItineraryDayTabs } from './ItineraryDayTabs'
 import { ItineraryTimeline } from './ItineraryTimeline'
 import { ItineraryCreateForm } from './ItineraryCreateForm'
 import { ResourceSection } from './ResourceSection'
+import { FlightSection } from './FlightSection'
 import { TravelSummaryBar } from './TravelSummaryBar'
 import { useItinerary } from '@/hooks/queries/useItinerary'
 import { useItineraryMutations } from '@/hooks/mutations/useItineraryMutations'
 import type { Place } from '@/types'
 import type { ItineraryDay as ItineraryDayType } from '@/infrastructure/api-client/itinerary.api'
 
+/** 경로 시각화용 좌표 */
+export type RoutePathItemType = 'place' | 'accommodation'
+
+export interface RoutePathPoint {
+  lat: number
+  lng: number
+  order: number
+  placeId?: string
+  accommodationId?: string
+  itemType: RoutePathItemType
+}
+
 interface ItineraryViewProps {
   projectId: string
   places: Place[]
   onDaySelect?: (dayNumber: number | null, placeIds: string[]) => void
   onPlaceClick?: (placeId: string) => void
+  /** 경로 변경 시 호출 (일정 순서대로 좌표 배열) */
+  onRouteChange?: (routePath: RoutePathPoint[] | null) => void
 }
 
 export function ItineraryView({
@@ -27,6 +42,7 @@ export function ItineraryView({
   places,
   onDaySelect,
   onPlaceClick,
+  onRouteChange,
 }: ItineraryViewProps) {
   const { itinerary, isLoading, error, mutate } = useItinerary(projectId)
   const {
@@ -61,6 +77,56 @@ export function ItineraryView({
       .map((item) => item.placeId)
       .filter((id): id is string => id !== null)
   }, [selectedDay])
+
+  // 경로 시각화용 좌표 계산 및 부모에게 전달 (숙소 포함)
+  const routePath = useMemo((): RoutePathPoint[] | null => {
+    if (!selectedDay || selectedDay.items.length === 0) return null
+
+    const pathPoints: RoutePathPoint[] = []
+
+    // order 순으로 정렬된 아이템들
+    const sortedItems = [...selectedDay.items].sort((a, b) => a.order - b.order)
+
+    // 숙소 목록 (좌표 조회용)
+    const accommodations = itinerary?.accommodations || []
+
+    let orderCounter = 1
+    sortedItems.forEach((item) => {
+      // 장소 아이템
+      if (item.placeId) {
+        const place = places.find((p) => p.id === item.placeId)
+        if (place) {
+          pathPoints.push({
+            lat: place.latitude,
+            lng: place.longitude,
+            order: orderCounter++,
+            placeId: place.id,
+            itemType: 'place',
+          })
+        }
+      }
+      // 숙소 아이템 (체크인/체크아웃/숙박)
+      else if (item.accommodationId) {
+        const accommodation = accommodations.find((a) => a.id === item.accommodationId)
+        if (accommodation && accommodation.latitude && accommodation.longitude) {
+          pathPoints.push({
+            lat: accommodation.latitude,
+            lng: accommodation.longitude,
+            order: orderCounter++,
+            accommodationId: accommodation.id,
+            itemType: 'accommodation',
+          })
+        }
+      }
+    })
+
+    return pathPoints.length >= 2 ? pathPoints : null
+  }, [selectedDay, places, itinerary?.accommodations])
+
+  // 경로 변경 시 부모에게 알림
+  useEffect(() => {
+    onRouteChange?.(routePath)
+  }, [routePath, onRouteChange])
 
   // Handle day selection
   const handleDaySelect = useCallback(
@@ -328,13 +394,12 @@ export function ItineraryView({
 
       {/* Desktop: Collapsible sections */}
       <div className="flex-shrink-0 border-b p-4 space-y-4 hidden md:block">
-        <ResourceSection
-          type="flight"
-          items={itinerary.flights || []}
+        <FlightSection
+          flights={itinerary.flights || []}
           itineraryId={itinerary.id}
-          onAdd={handleAddFlight}
-          onUpdate={handleUpdateFlight}
-          onDelete={handleDeleteFlight}
+          onAddFlight={handleAddFlight}
+          onUpdateFlight={handleUpdateFlight}
+          onDeleteFlight={handleDeleteFlight}
           isLoading={mutationLoading}
           defaultExpanded={false}
         />

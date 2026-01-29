@@ -7,7 +7,6 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { canEditProject } from '@/lib/auth-utils'
 import { prisma } from '@/lib/db'
 import { z } from 'zod'
 import { realtimeBroadcast } from '@/infrastructure/services/realtime'
@@ -34,39 +33,54 @@ export async function POST(
 
     const { id: itineraryId } = await params
 
-    // Verify itinerary exists
-    const itinerary = await prisma.itinerary.findUnique({
-      where: { id: itineraryId },
-      include: { project: true },
-    })
+    const body = await request.json()
+    const validated = createItemSchema.parse(body)
+
+    // Verify itinerary (with auth), day, and place in a single parallel batch
+    const [itinerary, day, place] = await Promise.all([
+      prisma.itinerary.findUnique({
+        where: { id: itineraryId },
+        select: {
+          id: true,
+          projectId: true,
+          project: {
+            select: {
+              userId: true,
+              members: {
+                where: { userId: session.user.id },
+                select: { userId: true },
+                take: 1,
+              },
+            },
+          },
+        },
+      }),
+      prisma.itineraryDay.findFirst({
+        where: { id: validated.dayId, itineraryId },
+        select: { id: true },
+      }),
+      prisma.place.findFirst({
+        where: { id: validated.placeId },
+        select: { id: true, projectId: true },
+      }),
+    ])
 
     if (!itinerary) {
       return NextResponse.json({ error: 'Itinerary not found' }, { status: 404 })
     }
 
-    // Check edit permission (owner or member)
-    if (!await canEditProject(itinerary.projectId, session.user.id)) {
+    // Auth check using data already fetched (no extra queries)
+    const isOwner = itinerary.project.userId === session.user.id
+    const isMember = itinerary.project.members.length > 0
+    if (!isOwner && !isMember) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
-
-    const body = await request.json()
-    const validated = createItemSchema.parse(body)
-
-    // Verify day belongs to this itinerary
-    const day = await prisma.itineraryDay.findFirst({
-      where: { id: validated.dayId, itineraryId },
-    })
 
     if (!day) {
       return NextResponse.json({ error: 'Day not found in this itinerary' }, { status: 404 })
     }
 
-    // Verify place belongs to the project
-    const place = await prisma.place.findFirst({
-      where: { id: validated.placeId, projectId: itinerary.projectId },
-    })
-
-    if (!place) {
+    if (!place || place.projectId !== itinerary.projectId) {
       return NextResponse.json({ error: 'Place not found in this project' }, { status: 404 })
     }
 

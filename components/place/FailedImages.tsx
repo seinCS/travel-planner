@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { CATEGORY_STYLES, PlaceCategory } from '@/lib/constants'
+import { Warning, Collapse, Expand } from '@/components/icons'
 import type { Image, CreatePlaceInput } from '@/types'
 
 interface FailedImagesProps {
@@ -64,11 +65,11 @@ export function FailedImages({ images, onAddPlace }: FailedImagesProps) {
         className="w-full flex items-center justify-between p-2 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
       >
         <span className="font-semibold text-sm flex items-center gap-2 text-red-700">
-          <span>⚠️</span>
+          <Warning className="w-4 h-4" />
           인식 실패 이미지 ({images.length}개)
         </span>
         <span className="text-red-600 text-sm">
-          {isExpanded ? '▲ 접기' : '▼ 펼치기'}
+          {isExpanded ? <><Collapse className="w-3.5 h-3.5 inline" /> 접기</> : <><Expand className="w-3.5 h-3.5 inline" /> 펼치기</>}
         </span>
       </button>
 
@@ -136,7 +137,7 @@ export function FailedImages({ images, onAddPlace }: FailedImagesProps) {
                     <SelectContent>
                       {Object.entries(CATEGORY_STYLES).map(([key, style]) => (
                         <SelectItem key={key} value={key}>
-                          {style.icon} {style.label}
+                          <span className="inline-flex items-center gap-1"><style.Icon className="w-3.5 h-3.5" /> {style.label}</span>
                         </SelectItem>
                       ))}
                     </SelectContent>

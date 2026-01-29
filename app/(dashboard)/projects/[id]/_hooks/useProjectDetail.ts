@@ -1,24 +1,18 @@
 /**
  * useProjectDetail Hook
  *
- * Consolidated hook for project detail page state and data fetching.
- * Combines multiple query and mutation hooks into a single interface.
+ * BFF 패턴: 단일 API 호출로 프로젝트 페이지 전체 데이터를 조회합니다.
+ * /api/projects/[id]/page-data 엔드포인트를 사용하여
+ * 프로젝트, 이미지, 장소, 텍스트 입력을 한 번에 가져옵니다.
  */
 
 import { useState, useCallback, useMemo, useEffect } from 'react'
 import useSWR from 'swr'
 import { toast } from 'sonner'
-import type { Place, Image, TextInput, Project, CreatePlaceInput } from '@/types'
+import type { Place, CreatePlaceInput } from '@/types'
+import type { ProjectPageData } from '@/types/page-data'
 import { geocodeDestination } from '@/lib/google-maps'
 import { imagesApi } from '@/infrastructure/api-client/images.api'
-
-interface PlaceWithPlaceImages extends Place {
-  placeImages?: { imageId: string }[]
-}
-
-interface ProjectData extends Project {
-  images?: Image[]
-}
 
 const fetcher = async (url: string) => {
   const res = await fetch(url)
@@ -27,33 +21,19 @@ const fetcher = async (url: string) => {
 }
 
 export function useProjectDetail(projectId: string) {
-  // SWR queries
+  // BFF: 단일 SWR 호출로 모든 데이터 조회
   const {
-    data: projectData,
-    mutate: mutateProject,
-    isLoading: projectLoading,
-  } = useSWR<ProjectData>(
-    projectId ? `/api/projects/${projectId}` : null,
+    data: pageData,
+    mutate,
+    isLoading,
+  } = useSWR<ProjectPageData>(
+    projectId ? `/api/projects/${projectId}/page-data` : null,
     fetcher,
-    { revalidateOnFocus: false }
-  )
-
-  const {
-    data: placesData,
-    mutate: mutatePlaces,
-  } = useSWR<{ places: PlaceWithPlaceImages[] }>(
-    projectId ? `/api/projects/${projectId}/places` : null,
-    fetcher,
-    { revalidateOnFocus: false }
-  )
-
-  const {
-    data: textInputsData,
-    mutate: mutateTextInputs,
-  } = useSWR<{ textInputs: TextInput[] }>(
-    projectId ? `/api/projects/${projectId}/text-inputs` : null,
-    fetcher,
-    { revalidateOnFocus: false }
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 30000,
+      keepPreviousData: true,
+    }
   )
 
   // Processing state
@@ -66,16 +46,22 @@ export function useProjectDetail(projectId: string) {
   const [mapCenterLoading, setMapCenterLoading] = useState(false)
   const [mapCenterFailed, setMapCenterFailed] = useState(false)
 
+  // Derived data from BFF response
+  const project = pageData?.project ?? null
+  const images = useMemo(() => pageData?.images ?? [], [pageData?.images])
+  const places = useMemo(() => pageData?.places ?? [], [pageData?.places])
+  const textInputs = useMemo(() => pageData?.textInputs ?? [], [pageData?.textInputs])
+
   // Set map center based on destination
   useEffect(() => {
-    if (projectData?.destination && !mapCenter && !mapCenterLoading && !mapCenterFailed) {
+    if (project?.destination && !mapCenter && !mapCenterLoading && !mapCenterFailed) {
       setMapCenterLoading(true)
-      geocodeDestination(projectData.destination, projectData.country || undefined)
+      geocodeDestination(project.destination, project.country || undefined)
         .then((center) => {
           if (center) {
             setMapCenter(center)
           } else {
-            console.warn('[useProjectDetail] Geocoding returned null for:', projectData.destination)
+            console.warn('[useProjectDetail] Geocoding returned null for:', project.destination)
             setMapCenterFailed(true)
           }
         })
@@ -87,37 +73,21 @@ export function useProjectDetail(projectId: string) {
           setMapCenterLoading(false)
         })
     }
-  }, [projectData?.destination, projectData?.country, mapCenter, mapCenterLoading, mapCenterFailed])
+  }, [project?.destination, project?.country, mapCenter, mapCenterLoading, mapCenterFailed])
 
-  // Derived data
-  const project = projectData ?? null
-  const images = projectData?.images ?? []
-  const places = placesData?.places ?? []
-  const textInputs = textInputsData?.textInputs ?? []
-
-  const isLoading = projectLoading
-
-  // Computed values
-  const pendingImageCount = useMemo(
-    () => images.filter((i) => i.status === 'pending').length,
-    [images]
-  )
-  const failedImageCount = useMemo(
-    () => images.filter((i) => i.status === 'failed').length,
-    [images]
-  )
+  // Computed values from meta (pre-computed on server) with client fallback
+  const pendingImageCount = pageData?.meta?.pendingImageCount
+    ?? images.filter((i) => i.status === 'pending').length
+  const failedImageCount = pageData?.meta?.failedImageCount
+    ?? images.filter((i) => i.status === 'failed').length
   const failedImages = useMemo(
     () => images.filter((i) => i.status === 'failed'),
     [images]
   )
-  const pendingTextCount = useMemo(
-    () => textInputs.filter((t) => t.status === 'pending').length,
-    [textInputs]
-  )
-  const failedTextCount = useMemo(
-    () => textInputs.filter((t) => t.status === 'failed').length,
-    [textInputs]
-  )
+  const pendingTextCount = pageData?.meta?.pendingTextCount
+    ?? textInputs.filter((t) => t.status === 'pending').length
+  const failedTextCount = pageData?.meta?.failedTextCount
+    ?? textInputs.filter((t) => t.status === 'failed').length
 
   // Get places for a specific image
   const getPlacesForImage = useCallback(
@@ -129,17 +99,17 @@ export function useProjectDetail(projectId: string) {
     [places]
   )
 
-  // Mutations
+  // Mutations - all use single mutate() to revalidate BFF data
   const handleUploadComplete = useCallback(
     (uploadedCount: number, failedCount: number) => {
-      mutateProject()
+      mutate()
       if (uploadedCount > 0) {
         toast.success(`${uploadedCount}개 이미지 업로드 완료${failedCount > 0 ? ` (${failedCount}개 실패)` : ''}`)
       } else if (failedCount > 0) {
         toast.error(`업로드 실패: ${failedCount}개 이미지`)
       }
     },
-    [mutateProject]
+    [mutate]
   )
 
   const processImages = useCallback(
@@ -159,7 +129,7 @@ export function useProjectDetail(projectId: string) {
           } else {
             toast.info('처리할 이미지가 없습니다.')
           }
-          await Promise.all([mutatePlaces(), mutateProject()])
+          await mutate()
         } else {
           throw new Error('Processing failed')
         }
@@ -170,7 +140,7 @@ export function useProjectDetail(projectId: string) {
         setProcessing(false)
       }
     },
-    [projectId, mutatePlaces, mutateProject]
+    [projectId, mutate]
   )
 
   const processText = useCallback(
@@ -190,7 +160,7 @@ export function useProjectDetail(projectId: string) {
           } else {
             toast.info('처리할 텍스트가 없습니다.')
           }
-          await Promise.all([mutatePlaces(), mutateTextInputs()])
+          await mutate()
         } else {
           throw new Error('Text processing failed')
         }
@@ -201,13 +171,13 @@ export function useProjectDetail(projectId: string) {
         setProcessingText(false)
       }
     },
-    [projectId, mutatePlaces, mutateTextInputs]
+    [projectId, mutate]
   )
 
   const handleTextInputComplete = useCallback(() => {
-    mutateTextInputs()
+    mutate()
     toast.success('저장되었습니다.')
-  }, [mutateTextInputs])
+  }, [mutate])
 
   const deleteTextInput = useCallback(
     async (textInputId: string) => {
@@ -217,7 +187,7 @@ export function useProjectDetail(projectId: string) {
         })
 
         if (res.ok) {
-          mutateTextInputs()
+          mutate()
           toast.success('삭제되었습니다.')
         } else {
           throw new Error('Delete failed')
@@ -227,7 +197,7 @@ export function useProjectDetail(projectId: string) {
         toast.error('삭제에 실패했습니다.')
       }
     },
-    [projectId, mutateTextInputs]
+    [projectId, mutate]
   )
 
   const deletePlace = useCallback(
@@ -238,7 +208,7 @@ export function useProjectDetail(projectId: string) {
         })
 
         if (res.ok) {
-          mutatePlaces()
+          mutate()
           toast.success('장소가 삭제되었습니다.')
           return true
         }
@@ -249,15 +219,15 @@ export function useProjectDetail(projectId: string) {
         return false
       }
     },
-    [mutatePlaces]
+    [mutate]
   )
 
   const updatePlace = useCallback(
     async (_updatedPlace: Place) => {
-      mutatePlaces()
+      mutate()
       toast.success('장소가 수정되었습니다.')
     },
-    [mutatePlaces]
+    [mutate]
   )
 
   const addPlace = useCallback(
@@ -271,7 +241,7 @@ export function useProjectDetail(projectId: string) {
 
         if (res.ok) {
           toast.success('장소가 추가되었습니다.')
-          await Promise.all([mutatePlaces(), mutateProject()])
+          await mutate()
           return true
         } else {
           const error = await res.json()
@@ -283,7 +253,7 @@ export function useProjectDetail(projectId: string) {
         return false
       }
     },
-    [projectId, mutatePlaces, mutateProject]
+    [projectId, mutate]
   )
 
   const deleteImages = useCallback(
@@ -301,7 +271,7 @@ export function useProjectDetail(projectId: string) {
           toast.error(`${result.failed.length}개 이미지 삭제 실패`)
         }
 
-        await Promise.all([mutateProject(), mutatePlaces()])
+        await mutate()
       } catch (error) {
         console.error('Failed to delete images:', error)
         toast.error('이미지 삭제에 실패했습니다.')
@@ -310,7 +280,7 @@ export function useProjectDetail(projectId: string) {
         setDeletingImages(false)
       }
     },
-    [projectId, mutateProject, mutatePlaces]
+    [projectId, mutate]
   )
 
   return {
@@ -347,9 +317,9 @@ export function useProjectDetail(projectId: string) {
     addPlace,
     deleteImages,
 
-    // Revalidation
-    mutateProject,
-    mutatePlaces,
-    mutateTextInputs,
+    // Revalidation - single mutate replaces all three
+    mutateProject: mutate,
+    mutatePlaces: mutate,
+    mutateTextInputs: mutate,
   }
 }

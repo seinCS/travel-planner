@@ -1,0 +1,29 @@
+import { forwardRef } from 'react'
+import type { IconProps } from '../_IconBase'
+
+const Close = forwardRef<SVGSVGElement, IconProps>(
+  ({ size = 24, className, secondaryOpacity = 0.4, ...props }, ref) => (
+    <svg
+      ref={ref}
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      className={className}
+      {...props}
+    >
+      <g transform="translate(1.9, 1.82) scale(0.1326)">
+        <g className="duotone-secondary" opacity={secondaryOpacity} fill="currentColor">
+          
+        </g>
+        <g className="duotone-primary" fill="currentColor">
+          <path d="M42.28,13.93l34.1,35.23L111.28,13.63l7.41-7.37c8.03-7.99,20.19-8.48,28.21-.62,7.71,7.55,7.46,19.98-.36,28.54l-7.13,7.82-35.17,34.41c11.55,11.58,24.1,22.04,35.07,34.5l6.87,7.81c7.78,8.84,8.75,21.24.62,29.06-8.51,8.19-20.37,5.91-29.6-2.07l-6.94-6c-11.79-10.19-21.84-22.71-33.75-35.12-11.65,11.55-21.85,24.34-34.22,35.16l-7.44,6.51c-8.43,7.38-19.56,9.6-27.62,2.89-8.32-6.94-9.87-19.67-2.51-28.02,2.78-3.16,5.58-6.41,8.85-9.67l34.82-34.8L13.27,41.98l-8.11-9.07C-2.55,24.29-1.44,11.45,7.3,4.45,15.82-2.39,26.78.06,35.4,7.77l6.88,6.16Z"/>
+        </g>
+      </g>
+    </svg>
+  )
+)
+
+Close.displayName = 'Close'
+export { Close }

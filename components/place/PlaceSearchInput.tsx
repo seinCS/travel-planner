@@ -4,6 +4,17 @@ import { useRef, useState, useEffect, useCallback } from 'react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import type { PlaceSearchPrediction } from '@/infrastructure/api-client/places.api'
+import {
+  Restaurant,
+  Cafe,
+  Accommodation,
+  Attraction,
+  Shopping,
+  Flight,
+  Location,
+  Search as SearchIcon,
+  type IconComponent,
+} from '@/components/icons'
 
 interface PlaceSearchInputProps {
   /** Search query value */
@@ -104,15 +115,15 @@ export function PlaceSearchInput({
   }, [highlightedIndex])
 
   // Map place types to icons
-  const getTypeIcon = (types: string[]): string => {
-    if (types.includes('restaurant') || types.includes('food')) return '🍽️'
-    if (types.includes('cafe')) return '☕'
-    if (types.includes('lodging')) return '🏨'
+  const getTypeIcon = (types: string[]): IconComponent => {
+    if (types.includes('restaurant') || types.includes('food')) return Restaurant
+    if (types.includes('cafe')) return Cafe
+    if (types.includes('lodging')) return Accommodation
     if (types.includes('tourist_attraction') || types.includes('point_of_interest'))
-      return '📸'
-    if (types.includes('store') || types.includes('shopping_mall')) return '🛍️'
-    if (types.includes('airport') || types.includes('train_station')) return '✈️'
-    return '📍'
+      return Attraction
+    if (types.includes('store') || types.includes('shopping_mall')) return Shopping
+    if (types.includes('airport') || types.includes('train_station')) return Flight
+    return Location
   }
 
   return (
@@ -153,19 +164,7 @@ export function PlaceSearchInput({
         {/* Search Icon (when not loading) */}
         {!isLoading && (
           <div className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
+            <SearchIcon className="h-4 w-4" />
           </div>
         )}
       </div>
@@ -197,9 +196,10 @@ export function PlaceSearchInput({
             >
               <div className="flex items-start gap-3">
                 {/* Type Icon */}
-                <span className="mt-0.5 text-lg flex-shrink-0">
-                  {getTypeIcon(prediction.types)}
-                </span>
+                {(() => {
+                  const TypeIcon = getTypeIcon(prediction.types)
+                  return <TypeIcon className="w-5 h-5 mt-0.5 flex-shrink-0 text-muted-foreground" />
+                })()}
 
                 {/* Text Content */}
                 <div className="min-w-0 flex-1">

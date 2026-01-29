@@ -1,11 +1,24 @@
+import type { IconComponent } from '@/components/icons'
+import {
+  Restaurant,
+  Cafe,
+  Attraction,
+  Shopping,
+  Accommodation,
+  Location,
+} from '@/components/icons'
+
 /** 장소 카테고리별 스타일 정의 */
-export const CATEGORY_STYLES = {
-  restaurant: { color: '#EF4444', icon: '🍽️', label: '맛집' },
-  cafe: { color: '#92400E', icon: '☕', label: '카페' },
-  attraction: { color: '#3B82F6', icon: '📸', label: '관광지' },
-  shopping: { color: '#8B5CF6', icon: '🛍️', label: '쇼핑' },
-  accommodation: { color: '#10B981', icon: '🏨', label: '숙소' },
-  other: { color: '#6B7280', icon: '📍', label: '기타' },
+export const CATEGORY_STYLES: Record<
+  string,
+  { color: string; Icon: IconComponent; label: string; markerLabel: string }
+> = {
+  restaurant: { color: '#EF4444', Icon: Restaurant, label: '맛집', markerLabel: 'R' },
+  cafe: { color: '#92400E', Icon: Cafe, label: '카페', markerLabel: 'C' },
+  attraction: { color: '#3B82F6', Icon: Attraction, label: '관광지', markerLabel: 'A' },
+  shopping: { color: '#8B5CF6', Icon: Shopping, label: '쇼핑', markerLabel: 'S' },
+  accommodation: { color: '#10B981', Icon: Accommodation, label: '숙소', markerLabel: 'H' },
+  other: { color: '#6B7280', Icon: Location, label: '기타', markerLabel: 'P' },
 } as const
 
 export type PlaceCategory = keyof typeof CATEGORY_STYLES

@@ -30,12 +30,22 @@ export function isChatbotEnabled(userId?: string): boolean {
     return true
   }
   if (rolloutPercent <= 0) {
-    return betaUsers.length > 0 ? false : true // If no beta users, default to enabled
+    // When rollout is 0%:
+    // - If beta users are defined, only beta users have access (non-beta users blocked)
+    // - If no beta users defined, enable for all (assumes testing/dev environment)
+    return betaUsers.length > 0 ? false : true
   }
 
   // Consistent hash based on userId
   const hash = hashString(userId)
   return (hash % 100) < rolloutPercent
+}
+
+/**
+ * Check if Function Calling is enabled for chat
+ */
+export function isFunctionCallingEnabled(_userId?: string): boolean {
+  return process.env.CHATBOT_FUNCTION_CALLING_ENABLED === 'true'
 }
 
 /**

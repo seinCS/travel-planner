@@ -14,12 +14,13 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { CATEGORY_STYLES } from '@/lib/constants'
 import type { ItineraryItem, ItineraryDay, ItineraryItemType } from '@/infrastructure/api-client/itinerary.api'
+import { Hotel, Luggage, BedDouble, CATEGORY_ICONS, MapPin, type LucideIcon } from '@/lib/icons'
 
 // 숙소 아이템 타입별 스타일 및 라벨
-const ACCOMMODATION_STYLES: Record<string, { icon: string; label: string; color: string }> = {
-  accommodation_checkin: { icon: '🏨', label: '체크인', color: '#10b981' },
-  accommodation_checkout: { icon: '🧳', label: '체크아웃', color: '#f59e0b' },
-  accommodation_stay: { icon: '🛏️', label: '숙박', color: '#6366f1' },
+const ACCOMMODATION_STYLES: Record<string, { Icon: LucideIcon; label: string; color: string }> = {
+  accommodation_checkin: { Icon: Hotel, label: '체크인', color: '#10b981' },
+  accommodation_checkout: { Icon: Luggage, label: '체크아웃', color: '#f59e0b' },
+  accommodation_stay: { Icon: BedDouble, label: '숙박', color: '#6366f1' },
 }
 
 // 숙소 아이템인지 확인
@@ -27,8 +28,13 @@ function isAccommodationItem(itemType: ItineraryItemType): boolean {
   return itemType.startsWith('accommodation_')
 }
 
+// Extended item type with optimistic flag
+interface OptimisticItem extends ItineraryItem {
+  isOptimistic?: boolean
+}
+
 interface SortableTimelineItemProps {
-  item: ItineraryItem
+  item: OptimisticItem
   index: number
   currentDayId: string
   allDays?: ItineraryDay[]
@@ -58,7 +64,10 @@ export const SortableTimelineItem = memo(function SortableTimelineItem({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: item.id })
+  } = useSortable({
+    id: item.id,
+    disabled: item.isOptimistic, // Disable drag for optimistic items
+  })
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -67,6 +76,7 @@ export const SortableTimelineItem = memo(function SortableTimelineItem({
 
   // 숙소 아이템인지 확인
   const isAccommodation = isAccommodationItem(item.itemType)
+  const isOptimistic = item.isOptimistic ?? false
   const place = item.place
   const accommodation = item.accommodation
 
@@ -76,6 +86,13 @@ export const SortableTimelineItem = memo(function SortableTimelineItem({
     : place
       ? CATEGORY_STYLES[place.category as keyof typeof CATEGORY_STYLES] || CATEGORY_STYLES.other
       : CATEGORY_STYLES.other
+
+  // 아이콘 컴포넌트 결정
+  const IconComponent: LucideIcon = isAccommodation
+    ? (ACCOMMODATION_STYLES[item.itemType]?.Icon || Hotel)
+    : place
+      ? (CATEGORY_ICONS[place.category] || MapPin)
+      : MapPin
 
   // 표시할 이름 결정
   const displayName = isAccommodation
@@ -129,7 +146,7 @@ export const SortableTimelineItem = memo(function SortableTimelineItem({
         }`}
         style={{ backgroundColor: categoryStyle.color }}
       >
-        {isAccommodation ? categoryStyle.icon : index + 1}
+        {isAccommodation ? <IconComponent className="w-3.5 h-3.5" /> : index + 1}
       </div>
 
       {/* Place/Accommodation card - entire area is draggable */}
@@ -139,11 +156,17 @@ export const SortableTimelineItem = memo(function SortableTimelineItem({
             ? 'bg-gradient-to-r from-indigo-50 to-white border-indigo-200'
             : 'bg-white'
         } ${
+          isOptimistic
+            ? 'opacity-70 animate-pulse border-dashed border-primary/50'
+            : ''
+        } ${
           isDragging
             ? 'shadow-xl border-primary bg-primary/5 cursor-grabbing'
             : isAccommodation
               ? 'cursor-default hover:border-indigo-300'
-              : 'cursor-grab hover:border-primary hover:shadow-md'
+              : isOptimistic
+                ? 'cursor-wait'
+                : 'cursor-grab hover:border-primary hover:shadow-md'
         }`}
         onClick={handleCardClick}
         onDragStart={handleDragStart}
@@ -155,7 +178,7 @@ export const SortableTimelineItem = memo(function SortableTimelineItem({
                 className="w-5 h-5 rounded-full flex items-center justify-center text-xs flex-shrink-0"
                 style={{ backgroundColor: categoryStyle.color + '20', color: categoryStyle.color }}
               >
-                {categoryStyle.icon}
+                <IconComponent className="w-3 h-3" />
               </span>
               <h4 className="font-medium text-sm truncate">{displayName}</h4>
               {/* 숙소 라벨 표시 */}
@@ -165,6 +188,13 @@ export const SortableTimelineItem = memo(function SortableTimelineItem({
                   style={{ backgroundColor: categoryStyle.color + '20', color: categoryStyle.color }}
                 >
                   {itemLabel}
+                </span>
+              )}
+              {/* Optimistic 상태 표시 */}
+              {isOptimistic && (
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <span className="inline-block w-3 h-3 border-2 border-primary/50 border-t-transparent rounded-full animate-spin" />
+                  저장 중...
                 </span>
               )}
             </div>
@@ -179,7 +209,7 @@ export const SortableTimelineItem = memo(function SortableTimelineItem({
             {/* Address for accommodation */}
             {isAccommodation && accommodation?.address && (
               <p className="text-xs text-muted-foreground mt-1 ml-7 truncate">
-                📍 {accommodation.address}
+                <MapPin className="w-3 h-3 inline mr-0.5" />{accommodation.address}
               </p>
             )}
 

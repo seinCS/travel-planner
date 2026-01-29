@@ -20,6 +20,7 @@ import {
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
 import { CATEGORY_STYLES, type PlaceCategory } from '@/lib/constants'
+import { Star } from '@/components/icons'
 
 interface PlacePreviewData {
   name: string
@@ -67,24 +68,18 @@ export function GoogleMapsPreview({
 
     for (let i = 0; i < fullStars; i++) {
       stars.push(
-        <span key={`full-${i}`} className="text-yellow-400">
-          ★
-        </span>
+        <Star key={`full-${i}`} className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
       )
     }
     if (hasHalf) {
       stars.push(
-        <span key="half" className="text-yellow-400">
-          ★
-        </span>
+        <Star key="half" className="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
       )
     }
     const remaining = 5 - Math.ceil(rating)
     for (let i = 0; i < remaining; i++) {
       stars.push(
-        <span key={`empty-${i}`} className="text-gray-300">
-          ★
-        </span>
+        <Star key={`empty-${i}`} className="w-3.5 h-3.5 text-gray-300" />
       )
     }
 
@@ -159,7 +154,7 @@ export function GoogleMapsPreview({
               {Object.entries(CATEGORY_STYLES).map(([key, style]) => (
                 <SelectItem key={key} value={key}>
                   <span className="flex items-center gap-2">
-                    <span>{style.icon}</span>
+                    <style.Icon className="w-3.5 h-3.5" />
                     <span>{style.label}</span>
                   </span>
                 </SelectItem>

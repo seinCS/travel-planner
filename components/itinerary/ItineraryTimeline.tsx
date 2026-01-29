@@ -21,9 +21,12 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable'
 import { Button } from '@/components/ui/button'
-import { CATEGORY_STYLES } from '@/lib/constants'
 import { SortableTimelineItem } from './SortableTimelineItem'
+import { PlacePickerModal } from './PlacePickerModal'
+import { DistanceIndicator } from './DistanceIndicator'
+import { useDistances } from '@/hooks/queries/useDistances'
 import type { Place } from '@/types'
+import type { RouteItem } from '@/types/route'
 import type { ItineraryDay, ItineraryItem } from '@/infrastructure/api-client/itinerary.api'
 
 interface ItineraryTimelineProps {
@@ -51,8 +54,7 @@ export function ItineraryTimeline({
   onPlaceClick,
   isLoading,
 }: ItineraryTimelineProps) {
-  const [showAddPlace, setShowAddPlace] = useState(false)
-  const [addingPlaceId, setAddingPlaceId] = useState<string | null>(null)
+  const [showPlacePickerModal, setShowPlacePickerModal] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
 
   // Local state for optimistic updates
@@ -81,13 +83,57 @@ export function ItineraryTimeline({
     })
   )
 
-  // Available places (not yet added to this day)
-  const availablePlaces = useMemo(() => {
-    return places.filter((p) => !itemPlaceIds.includes(p.id))
+  // Count of available places (not yet added to this day)
+  const availablePlacesCount = useMemo(() => {
+    return places.filter((p) => !itemPlaceIds.includes(p.id)).length
   }, [places, itemPlaceIds])
 
   // Item IDs for SortableContext
   const itemIds = useMemo(() => localItems.map((item) => item.id), [localItems])
+
+  // Distance calculation items - place items and accommodation items with coordinates
+  const routeItems: RouteItem[] = useMemo(() => {
+    const items: RouteItem[] = []
+    let orderIndex = 0
+
+    localItems.forEach((item) => {
+      // 장소 아이템
+      if (
+        item.itemType === 'place' &&
+        item.place?.latitude != null &&
+        item.place?.longitude != null
+      ) {
+        items.push({
+          id: item.id,
+          placeId: item.placeId!,
+          itemType: 'place',
+          latitude: item.place.latitude,
+          longitude: item.place.longitude,
+          order: orderIndex++,
+        })
+      }
+      // 숙소 아이템 (체크인/체크아웃/숙박)
+      else if (
+        item.accommodationId &&
+        item.accommodation?.latitude != null &&
+        item.accommodation?.longitude != null
+      ) {
+        items.push({
+          id: item.id,
+          accommodationId: item.accommodationId,
+          itemType: 'accommodation',
+          latitude: item.accommodation.latitude,
+          longitude: item.accommodation.longitude,
+          order: orderIndex++,
+        })
+      }
+    })
+
+    return items
+  }, [localItems])
+
+  // Fetch distances between items
+  const { segments, totalDistance, totalDuration } = useDistances(day.id, routeItems)
 
   // Handle drag start
   const handleDragStart = useCallback((event: DragStartEvent) => {
@@ -135,20 +181,12 @@ export function ItineraryTimeline({
     [localItems, onReorderItems]
   )
 
-  // Handle add place with loading state
+  // Handle add place from modal
   const handleAddPlace = useCallback(
     async (placeId: string) => {
-      if (addingPlaceId) return // Prevent duplicate clicks
-
-      setAddingPlaceId(placeId)
-      try {
-        await onAddPlace(placeId)
-        setShowAddPlace(false)
-      } finally {
-        setAddingPlaceId(null)
-      }
+      await onAddPlace(placeId)
     },
-    [addingPlaceId, onAddPlace]
+    [onAddPlace]
   )
 
   // Format day date
@@ -158,65 +196,41 @@ export function ItineraryTimeline({
     <div className="space-y-4">
       {/* Day header */}
       <div className="flex items-center justify-between">
-        <h3 className="font-medium text-lg">
-          Day {day.dayNumber} - {dayDate}
-        </h3>
+        <div className="flex items-center gap-3">
+          <h3 className="font-medium text-lg">
+            Day {day.dayNumber} - {dayDate}
+          </h3>
+          {/* Total distance/time summary */}
+          {totalDistance && totalDuration && segments.length > 0 && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-gray-100 px-2 py-1 rounded-full">
+              <span>{totalDistance.text}</span>
+              <span className="text-gray-400">|</span>
+              <span>{totalDuration.text}</span>
+            </div>
+          )}
+        </div>
         <Button
           size="sm"
           variant="outline"
-          onClick={() => setShowAddPlace(!showAddPlace)}
-          disabled={isLoading || availablePlaces.length === 0 || addingPlaceId !== null}
+          onClick={() => setShowPlacePickerModal(true)}
+          disabled={isLoading || availablePlacesCount === 0}
         >
-          {showAddPlace ? '취소' : '+ 장소 추가'}
+          + 장소 추가
+          {availablePlacesCount > 0 && (
+            <span className="ml-1 text-xs opacity-70">({availablePlacesCount})</span>
+          )}
         </Button>
       </div>
 
-      {/* Add place dropdown */}
-      {showAddPlace && (
-        <div className="bg-gray-50 rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
-          <p className="text-sm text-muted-foreground mb-2">추가할 장소를 선택하세요:</p>
-          {availablePlaces.map((place) => {
-            const style = CATEGORY_STYLES[place.category as keyof typeof CATEGORY_STYLES] || CATEGORY_STYLES.other
-            const isAdding = addingPlaceId === place.id
-
-            return (
-              <div
-                key={place.id}
-                className={`flex items-center justify-between p-2 bg-white rounded border transition-colors ${
-                  isAdding
-                    ? 'opacity-50 cursor-wait border-primary'
-                    : addingPlaceId
-                      ? 'opacity-50 cursor-not-allowed'
-                      : 'cursor-pointer hover:border-primary'
-                }`}
-                onClick={() => !addingPlaceId && handleAddPlace(place.id)}
-              >
-                <div className="flex items-center gap-2">
-                  <span
-                    className="w-6 h-6 rounded-full flex items-center justify-center text-xs"
-                    style={{ backgroundColor: style.color + '20', color: style.color }}
-                  >
-                    {isAdding ? (
-                      <span className="animate-spin">⏳</span>
-                    ) : (
-                      style.icon
-                    )}
-                  </span>
-                  <span className="font-medium text-sm">{place.name}</span>
-                </div>
-                {isAdding && (
-                  <span className="text-xs text-muted-foreground">추가 중...</span>
-                )}
-              </div>
-            )
-          })}
-          {availablePlaces.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-2">
-              추가할 장소가 없습니다.
-            </p>
-          )}
-        </div>
-      )}
+      {/* Place Picker Modal */}
+      <PlacePickerModal
+        open={showPlacePickerModal}
+        onOpenChange={setShowPlacePickerModal}
+        places={places}
+        excludePlaceIds={itemPlaceIds}
+        onSelectPlace={handleAddPlace}
+        isLoading={isLoading}
+      />
 
       {/* Timeline items with DnD */}
       {localItems.length === 0 ? (
@@ -237,24 +251,54 @@ export function ItineraryTimeline({
             onDragEnd={handleDragEnd}
           >
             <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
-              <div className="space-y-4">
+              <div className="space-y-0">
                 {localItems.map((item, index) => {
                   // 장소 아이템만 순번 계산 (숙소 아이템 제외)
                   const placeIndex = localItems
                     .slice(0, index)
                     .filter((i) => i.itemType === 'place').length
+
+                  // Find distance segment for this item
+                  const segment = segments.find((seg) => seg.fromItemId === item.id)
+                  const nextItem = localItems[index + 1]
+
+                  // Get coordinates for current and next item (장소 또는 숙소)
+                  const currentCoords =
+                    item.itemType === 'place' && item.place
+                      ? { latitude: item.place.latitude, longitude: item.place.longitude }
+                      : item.accommodation?.latitude != null && item.accommodation?.longitude != null
+                        ? { latitude: item.accommodation.latitude, longitude: item.accommodation.longitude }
+                        : null
+                  const nextCoords =
+                    nextItem?.itemType === 'place' && nextItem?.place
+                      ? { latitude: nextItem.place.latitude, longitude: nextItem.place.longitude }
+                      : nextItem?.accommodation?.latitude != null && nextItem?.accommodation?.longitude != null
+                        ? { latitude: nextItem.accommodation.latitude, longitude: nextItem.accommodation.longitude }
+                        : null
+
                   return (
-                    <SortableTimelineItem
-                      key={item.id}
-                      item={item}
-                      index={placeIndex}
-                      currentDayId={day.id}
-                      allDays={allDays}
-                      onPlaceClick={onPlaceClick}
-                      onRemoveItem={onRemoveItem}
-                      onMoveToDay={onMoveToDay}
-                      isLoading={isLoading || isDragging}
-                    />
+                    <div key={item.id}>
+                      <div className="py-2">
+                        <SortableTimelineItem
+                          item={item}
+                          index={placeIndex}
+                          currentDayId={day.id}
+                          allDays={allDays}
+                          onPlaceClick={onPlaceClick}
+                          onRemoveItem={onRemoveItem}
+                          onMoveToDay={onMoveToDay}
+                          isLoading={isLoading || isDragging}
+                        />
+                      </div>
+                      {/* Distance indicator between items */}
+                      {segment && currentCoords && nextCoords && !isDragging && (
+                        <DistanceIndicator
+                          segment={segment}
+                          fromPlace={currentCoords}
+                          toPlace={nextCoords}
+                        />
+                      )}
+                    </div>
                   )
                 })}
               </div>

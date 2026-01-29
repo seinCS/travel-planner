@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
-import { X, RotateCcw, RefreshCw } from 'lucide-react'
+import { useCallback, useEffect, useRef } from 'react'
+import { X, RotateCcw, RefreshCw } from '@/components/icons'
 import { Button } from '@/components/ui/button'
 import { useChatHistory } from '@/hooks/queries/useChatHistory'
 import { useChatStream } from '@/hooks/mutations/useChatStream'
 import { useChatUsage } from '@/hooks/queries/useChatUsage'
+import { useApplyItinerary } from '@/hooks/mutations/useApplyItinerary'
 import { MessageList } from './MessageList'
 import { ChatInput } from './ChatInput'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -24,10 +25,12 @@ export function ChatWindow({ projectId, onClose }: ChatWindowProps) {
     isStreaming,
     streamingContent,
     streamingPlaces,
+    streamingItineraryPreview,
     error,
     lastFailedMessage,
   } = useChatStream(projectId)
   const { usage } = useChatUsage()
+  const { applyItinerary, isApplying } = useApplyItinerary(projectId)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const isMobile = useIsMobile('md')
@@ -38,7 +41,6 @@ export function ChatWindow({ projectId, onClose }: ChatWindowProps) {
   }, [messages, streamingContent])
 
   // Escape key handling for closing chat
-  // This provides consistent behavior across desktop and mobile
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -53,10 +55,6 @@ export function ChatWindow({ projectId, onClose }: ChatWindowProps) {
     }
   }, [onClose])
 
-  // Note: Mobile touch handling was considered but intentionally omitted
-  // Escape key and X button provide sufficient close mechanisms
-  // Adding outside-tap-to-close could interfere with scrolling on mobile
-
   const handleSend = async (message: string) => {
     await sendMessage(message)
   }
@@ -66,6 +64,37 @@ export function ChatWindow({ projectId, onClose }: ChatWindowProps) {
       await clearHistory()
     }
   }
+
+  const handleApplyItinerary = useCallback(async () => {
+    if (!streamingItineraryPreview) return
+
+    const result = await applyItinerary(streamingItineraryPreview)
+
+    if (result.success) {
+      // Success feedback via next message context
+      if (result.skippedPlaces && result.skippedPlaces.length > 0) {
+        alert(`일정이 적용되었습니다.\n미등록 장소 ${result.skippedPlaces.length}개는 건너뛰었습니다.`)
+      } else {
+        alert('일정이 적용되었습니다.')
+      }
+    } else if (result.error === 'ITINERARY_EXISTS') {
+      const overwrite = confirm('이미 일정이 존재합니다. 덮어쓰시겠습니까?')
+      if (overwrite) {
+        const retryResult = await applyItinerary(streamingItineraryPreview, true)
+        if (retryResult.success) {
+          alert('일정이 적용되었습니다.')
+        } else {
+          alert(retryResult.error || '일정 적용에 실패했습니다.')
+        }
+      }
+    } else {
+      alert(result.error || '일정 적용에 실패했습니다.')
+    }
+  }, [streamingItineraryPreview, applyItinerary])
+
+  const handleRegenerateItinerary = useCallback(() => {
+    sendMessage('일정을 다시 만들어줘')
+  }, [sendMessage])
 
   return (
     <div
@@ -117,9 +146,13 @@ export function ChatWindow({ projectId, onClose }: ChatWindowProps) {
             messages={messages}
             streamingContent={streamingContent}
             streamingPlaces={streamingPlaces}
+            streamingItineraryPreview={streamingItineraryPreview}
             isStreaming={isStreaming}
             projectId={projectId}
             onSendMessage={handleSend}
+            onApplyItinerary={handleApplyItinerary}
+            onRegenerateItinerary={handleRegenerateItinerary}
+            isApplyingItinerary={isApplying}
           />
         )}
 

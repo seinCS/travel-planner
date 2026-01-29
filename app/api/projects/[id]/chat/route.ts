@@ -8,11 +8,15 @@ import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { checkProjectAccess } from '@/lib/project-auth'
-import { isChatbotEnabled } from '@/lib/feature-flags'
+import { isChatbotEnabled, isFunctionCallingEnabled } from '@/lib/feature-flags'
 import { SendMessageUseCase } from '@/application/use-cases/chat/SendMessageUseCase'
+import { ChatContextBuilder } from '@/application/services/chat/ContextBuilder'
+import { ToolExecutor } from '@/application/services/chat/ToolExecutor'
 import { chatRepository } from '@/infrastructure/repositories/PrismaChatRepository'
 import { usageRepository } from '@/infrastructure/repositories/PrismaUsageRepository'
+import { itineraryRepository } from '@/infrastructure/repositories/PrismaItineraryRepository'
 import { geminiService } from '@/infrastructure/services/gemini/GeminiService'
+import { placeValidationService } from '@/infrastructure/services/PlaceValidationService'
 import { prisma } from '@/lib/db'
 import { logger } from '@/lib/logger'
 import { createChatError, CHAT_ERRORS } from '@/lib/constants/chat-errors'
@@ -64,11 +68,11 @@ export async function POST(
     }
 
     // 5. Get existing places for context (fail gracefully with empty array)
-    let existingPlaces: Array<{ name: string; category: string }> = []
+    let existingPlaces: Array<{ id: string; name: string; category: string; latitude: number | null; longitude: number | null }> = []
     try {
       existingPlaces = await prisma.place.findMany({
         where: { projectId },
-        select: { name: true, category: true },
+        select: { id: true, name: true, category: true, latitude: true, longitude: true },
       })
     } catch (dbError) {
       logger.warn('Failed to fetch existing places, continuing with empty list', {
@@ -78,8 +82,22 @@ export async function POST(
       // Continue with empty array - not critical for chat functionality
     }
 
-    // 6. Execute use case
-    const useCase = new SendMessageUseCase(chatRepository, geminiService, usageRepository)
+    // 6. Execute use case (with optional Function Calling support)
+    const fcEnabled = isFunctionCallingEnabled(userId)
+
+    // Set up ToolExecutor on GeminiService when Function Calling is enabled
+    if (fcEnabled) {
+      const toolExecutor = new ToolExecutor(placeValidationService)
+      geminiService.setToolExecutor(toolExecutor)
+    } else {
+      geminiService.setToolExecutor(null)
+    }
+
+    const contextBuilder = fcEnabled
+      ? new ChatContextBuilder(chatRepository, itineraryRepository)
+      : undefined
+
+    const useCase = new SendMessageUseCase(chatRepository, geminiService, usageRepository, contextBuilder)
 
     const result = await useCase.execute({
       projectId,
@@ -87,7 +105,13 @@ export async function POST(
       message,
       destination: accessResult.project.destination,
       country: accessResult.project.country || undefined,
-      existingPlaces,
+      existingPlaces: existingPlaces.map(p => ({
+        id: p.id,
+        name: p.name,
+        category: p.category,
+        latitude: p.latitude ?? undefined,
+        longitude: p.longitude ?? undefined,
+      })),
     })
 
     if (!result.success || !result.stream) {

@@ -10,6 +10,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import { CATEGORY_STYLES } from '@/lib/constants'
+import { Plane, Hotel, MapPin, ChevronDown, ChevronRight, CATEGORY_ICONS, type LucideIcon } from '@/lib/icons'
 
 // Types for shared itinerary data
 interface SharedPlace {
@@ -191,11 +192,13 @@ export function SharedItineraryView({
           {itinerary.flights.length > 0 && (
             <Collapsible open={showFlights} onOpenChange={setShowFlights}>
               <CollapsibleTrigger className="flex items-center gap-2 w-full hover:bg-gray-50 rounded px-2 py-1 -ml-2 transition-colors">
-                <span className="text-xs text-muted-foreground">
-                  {showFlights ? '▼' : '▶'}
-                </span>
+                {showFlights ? (
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                )}
                 <h3 className="font-medium text-sm flex items-center gap-2">
-                  <span>✈️</span> 항공편
+                  <Plane className="w-4 h-4 text-blue-500" /> 항공편
                   <span className="text-xs text-muted-foreground bg-gray-100 px-1.5 py-0.5 rounded">
                     {itinerary.flights.length}
                   </span>
@@ -248,11 +251,13 @@ export function SharedItineraryView({
           {itinerary.accommodations.length > 0 && (
             <Collapsible open={showAccommodations} onOpenChange={setShowAccommodations}>
               <CollapsibleTrigger className="flex items-center gap-2 w-full hover:bg-gray-50 rounded px-2 py-1 -ml-2 transition-colors">
-                <span className="text-xs text-muted-foreground">
-                  {showAccommodations ? '▼' : '▶'}
-                </span>
+                {showAccommodations ? (
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                )}
                 <h3 className="font-medium text-sm flex items-center gap-2">
-                  <span>🏨</span> 숙소
+                  <Hotel className="w-4 h-4 text-purple-500" /> 숙소
                   <span className="text-xs text-muted-foreground bg-gray-100 px-1.5 py-0.5 rounded">
                     {itinerary.accommodations.length}
                   </span>
@@ -281,8 +286,8 @@ export function SharedItineraryView({
                         </span>
                       </div>
                       {accommodation.address && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          📍 {accommodation.address}
+                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                          <MapPin className="w-3 h-3" /> {accommodation.address}
                         </p>
                       )}
                       {accommodation.note && (
@@ -367,6 +372,7 @@ function SharedTimeline({ day, onPlaceClick }: SharedTimelineProps) {
                 const style =
                   CATEGORY_STYLES[item.place.category as keyof typeof CATEGORY_STYLES] ||
                   CATEGORY_STYLES.other
+                const PlaceIcon: LucideIcon = CATEGORY_ICONS[item.place.category] || CATEGORY_ICONS.other
 
                 // Calculate display index (only for place items)
                 const placeIndex = day.items
@@ -397,7 +403,7 @@ function SharedTimeline({ day, onPlaceClick }: SharedTimelineProps) {
                             color: style.color,
                           }}
                         >
-                          {style.icon}
+                          <PlaceIcon className="w-3.5 h-3.5" />
                         </span>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
@@ -428,7 +434,7 @@ function SharedTimeline({ day, onPlaceClick }: SharedTimelineProps) {
                   <div key={item.id} className="flex gap-3 items-start pl-1">
                     {/* Icon bubble */}
                     <div className="w-8 h-8 rounded-full flex items-center justify-center bg-purple-100 text-purple-600 flex-shrink-0 z-10">
-                      🏨
+                      <Hotel className="w-4 h-4" />
                     </div>
 
                     {/* Content card */}
@@ -447,8 +453,8 @@ function SharedTimeline({ day, onPlaceClick }: SharedTimelineProps) {
                         )}
                       </div>
                       {item.accommodation.address && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          📍 {item.accommodation.address}
+                        <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                          <MapPin className="w-3 h-3" /> {item.accommodation.address}
                         </p>
                       )}
                       {item.note && (

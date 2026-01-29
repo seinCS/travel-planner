@@ -23,3 +23,6 @@ export * from './IGeocodingService'
 export * from './IChatRepository'
 export * from './ILLMService'
 export * from './IUsageRepository'
+
+// Tool execution interfaces
+export * from './services/IToolExecutor'

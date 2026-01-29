@@ -67,7 +67,7 @@ export function ImageDetailModal({
                           className="w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0"
                           style={{ backgroundColor: style.color + '20', color: style.color }}
                         >
-                          {style.icon}
+                          <style.Icon className="w-3.5 h-3.5" />
                         </span>
                         <div className="flex-1 min-w-0">
                           <h4 className="font-medium text-sm truncate">{place.name}</h4>

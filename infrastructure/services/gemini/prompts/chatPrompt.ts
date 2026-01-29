@@ -4,6 +4,8 @@
  * System prompts and prompt builders for Gemini chat.
  */
 
+import type { ChatContext } from '@/domain/interfaces/ILLMService'
+
 interface PromptContext {
   destination: string
   country?: string
@@ -84,6 +86,52 @@ export function buildConversationContext(
   return history
     .map(msg => `${msg.role === 'user' ? '사용자' : '어시스턴트'}: ${msg.content}`)
     .join('\n\n')
+}
+
+/**
+ * Enhanced system prompt with Function Calling support.
+ * Includes conversation summary, itinerary, user preferences,
+ * and tool usage instructions.
+ */
+export function buildEnhancedSystemPrompt(context: ChatContext): string {
+  const base = buildSystemPrompt({
+    destination: context.destination,
+    country: context.country,
+    existingPlaces: context.existingPlaces,
+  })
+
+  const sections: string[] = [base]
+
+  // Conversation summary
+  if (context.conversationSummary) {
+    sections.push(`\n## 이전 대화 요약\n${context.conversationSummary}`)
+  }
+
+  // Current itinerary
+  if (context.itinerary && context.itinerary.days.length > 0) {
+    const itineraryText = context.itinerary.days.map(d => {
+      const items = d.items.map(i =>
+        i.startTime ? `  ${i.startTime} ${i.placeName}` : `  - ${i.placeName}`
+      ).join('\n')
+      return `Day ${d.dayNumber} (${d.date}):\n${items}`
+    }).join('\n')
+    sections.push(`\n## 현재 일정\n${itineraryText}`)
+  }
+
+  // User preferences
+  if (context.userPreferences?.topCategories.length) {
+    sections.push(`\n## 사용자 선호\n선호 카테고리: ${context.userPreferences.topCategories.join(', ')}`)
+  }
+
+  // Function Calling instructions
+  sections.push(`\n## 도구 사용 규칙
+- 장소를 추천할 때는 반드시 recommend_places 도구를 사용하세요.
+- 일정을 생성할 때는 반드시 generate_itinerary 도구를 사용하세요.
+- 주변 장소 검색 시 search_nearby_places 도구를 사용하세요.
+- 텍스트 응답에는 JSON을 포함하지 마세요.
+- 도구 호출 전후로 자연스러운 설명을 추가하세요.`)
+
+  return sections.join('\n')
 }
 
 /**

@@ -1,0 +1,41 @@
+import { forwardRef } from 'react'
+import type { IconProps } from '../_IconBase'
+
+const TabCalendar = forwardRef<SVGSVGElement, IconProps>(
+  ({ size = 24, className, secondaryOpacity = 0.4, ...props }, ref) => (
+    <svg
+      ref={ref}
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      width={size}
+      height={size}
+      fill="none"
+      className={className}
+      {...props}
+    >
+      <g transform="translate(1.5, 1.53) scale(0.1489)">
+        <g className="duotone-secondary" opacity={secondaryOpacity} fill="currentColor">
+          <path d="M120.267,15.325l12.913.286c5.036.112,7.812,4.988,7.812,9.635l.009,105.768c0,5.407-3.619,9.661-9.368,9.66l-122.597-.01C3.743,140.665,0,136.176,0,131.115L.014,24.193c0-5.26,4.632-8.839,9.299-8.799l11.472.097.361,10.748c.201,5.991,5.224,10.416,10.776,10.506,5.491.09,10.974-4.491,11.119-10.623l.253-10.744,54.198.015.566,10.759c.315,5.991,5.147,10.582,10.762,10.654,5.511.071,11.107-4.515,11.231-10.671l.217-10.808ZM132.085,50.163l-123.283.049.032,81.573,123.283-.049-.032-81.573Z"/>
+        </g>
+        <g className="duotone-primary" fill="currentColor">
+          <path d="M114.936,24.596c.009,3.754-2.266,6.456-5.125,6.649-3.613.243-6.605-2.146-6.612-6.041l-.032-19.191c-.006-3.384,2.655-5.875,5.659-5.983,3.296-.119,6.055,2.548,6.064,6.236l.045,18.33Z"/>
+<path d="M37.847,24.738c.003,4.107-2.662,6.575-6.037,6.545-2.798-.024-5.682-2.633-5.689-5.996l-.041-19.322c-.007-3.29,2.743-5.8,5.798-5.961,2.335-.123,5.952,2.4,5.955,5.336l.014,19.398Z"/>
+<circle cx="33.431" cy="113.182" r="8.786"/>
+<circle cx="107.597" cy="68.633" r="8.789"/>
+<circle cx="104.163" cy="100.021" r="3.949"/>
+<circle cx="65.262" cy="82.53" r="3.869"/>
+<circle cx="40.078" cy="82.63" r="3.94"/>
+<circle cx="71.517" cy="94.704" r="3.863"/>
+<circle cx="79.642" cy="105.531" r="3.878"/>
+<circle cx="93.078" cy="107.988" r="3.884"/>
+<circle cx="52.59" cy="77.602" r="3.897"/>
+<circle cx="107.68" cy="86.687" r="3.866"/>
+<circle cx="34.038" cy="95.111" r="3.814"/>
+        </g>
+      </g>
+    </svg>
+  )
+)
+
+TabCalendar.displayName = 'TabCalendar'
+export { TabCalendar }

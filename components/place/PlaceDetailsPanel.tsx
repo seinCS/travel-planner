@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { CATEGORY_STYLES } from '@/lib/constants'
 import { getPhotoUrl } from '@/lib/google-maps'
 import { usePlaceDetails } from '@/hooks/queries/usePlaceDetails'
+import { Star, MapPin, Phone, Globe, Lightbulb, ChevronDown, ChevronRight, ExternalLink, CATEGORY_ICONS, type LucideIcon } from '@/lib/icons'
 
 interface PlaceDetailsPanelProps {
   placeId: string
@@ -29,8 +30,12 @@ export function PlaceDetailsPanel({ placeId, onClose, shareToken }: PlaceDetails
       <div className="p-4 space-y-4">
         <div className="flex justify-between items-center">
           <div className="h-6 bg-gray-200 rounded w-3/4 animate-pulse"></div>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xl">
-            ×
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+            aria-label="Close"
+          >
+            <span className="text-xl leading-none">&times;</span>
           </button>
         </div>
         <div className="h-24 bg-gray-200 rounded animate-pulse"></div>
@@ -45,8 +50,12 @@ export function PlaceDetailsPanel({ placeId, onClose, shareToken }: PlaceDetails
       <div className="p-4">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-bold">정보를 불러올 수 없습니다</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xl">
-            ×
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+            aria-label="Close"
+          >
+            <span className="text-xl leading-none">&times;</span>
           </button>
         </div>
       </div>
@@ -55,6 +64,7 @@ export function PlaceDetailsPanel({ placeId, onClose, shareToken }: PlaceDetails
 
   const p = details.place
   const categoryStyle = CATEGORY_STYLES[p.category as keyof typeof CATEGORY_STYLES] || CATEGORY_STYLES.other
+  const CategoryIcon: LucideIcon = CATEGORY_ICONS[p.category] || CATEGORY_ICONS.other
 
   return (
     <div className="flex flex-col h-full" data-testid="place-details-panel">
@@ -66,7 +76,7 @@ export function PlaceDetailsPanel({ placeId, onClose, shareToken }: PlaceDetails
             <div className="flex items-center gap-2 mt-1 flex-wrap">
               {p.rating && (
                 <div className="flex items-center gap-1">
-                  <span className="text-yellow-500">★</span>
+                  <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
                   <span className="font-medium">{p.rating.toFixed(1)}</span>
                   {p.userRatingsTotal && (
                     <span className="text-sm text-muted-foreground">
@@ -81,18 +91,19 @@ export function PlaceDetailsPanel({ placeId, onClose, shareToken }: PlaceDetails
                 </span>
               )}
               <span
-                className="text-xs px-2 py-0.5 rounded-full"
+                className="text-xs px-2 py-0.5 rounded-full flex items-center gap-1"
                 style={{ backgroundColor: categoryStyle.color + '20', color: categoryStyle.color }}
               >
-                {categoryStyle.icon} {categoryStyle.label}
+                <CategoryIcon className="w-3 h-3" /> {categoryStyle.label}
               </span>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="text-muted-foreground hover:text-foreground text-xl ml-2 flex-shrink-0"
+            className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors ml-2 flex-shrink-0"
+            aria-label="Close"
           >
-            ×
+            <span className="text-xl leading-none">&times;</span>
           </button>
         </div>
       </div>
@@ -127,7 +138,7 @@ export function PlaceDetailsPanel({ placeId, onClose, shareToken }: PlaceDetails
                   onClick={() => setShowAllHours(!showAllHours)}
                   className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
                 >
-                  <span>{showAllHours ? '▼' : '▶'}</span>
+                  {showAllHours ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                   <span>영업시간 {showAllHours ? '접기' : '보기'}</span>
                 </button>
                 {showAllHours && (
@@ -145,7 +156,7 @@ export function PlaceDetailsPanel({ placeId, onClose, shareToken }: PlaceDetails
         {/* 주소 */}
         {p.formattedAddress && (
           <div className="text-sm flex items-start gap-2">
-            <span className="text-muted-foreground flex-shrink-0">📍</span>
+            <MapPin className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-0.5" />
             <span>{p.formattedAddress}</span>
           </div>
         )}
@@ -153,7 +164,7 @@ export function PlaceDetailsPanel({ placeId, onClose, shareToken }: PlaceDetails
         {/* 전화번호 */}
         {p.formattedPhoneNumber && (
           <div className="text-sm flex items-center gap-2">
-            <span className="text-muted-foreground">📞</span>
+            <Phone className="w-4 h-4 text-muted-foreground" />
             <a href={`tel:${p.formattedPhoneNumber}`} className="text-blue-600 hover:underline">
               {p.formattedPhoneNumber}
             </a>
@@ -163,14 +174,14 @@ export function PlaceDetailsPanel({ placeId, onClose, shareToken }: PlaceDetails
         {/* 웹사이트 */}
         {p.website && (
           <div className="text-sm flex items-center gap-2">
-            <span className="text-muted-foreground">🌐</span>
+            <Globe className="w-4 h-4 text-muted-foreground" />
             <a
               href={p.website}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-600 hover:underline truncate"
+              className="text-blue-600 hover:underline truncate flex items-center gap-1"
             >
-              웹사이트
+              웹사이트 <ExternalLink className="w-3 h-3" />
             </a>
           </div>
         )}
@@ -178,7 +189,9 @@ export function PlaceDetailsPanel({ placeId, onClose, shareToken }: PlaceDetails
         {/* AI 추출 코멘트 */}
         {p.comment && (
           <div className="p-3 bg-blue-50 rounded-lg">
-            <p className="text-sm font-medium text-blue-800 mb-1">💡 팁</p>
+            <p className="text-sm font-medium text-blue-800 mb-1 flex items-center gap-1">
+              <Lightbulb className="w-4 h-4" /> 팁
+            </p>
             <p className="text-sm text-blue-700">{p.comment}</p>
           </div>
         )}
@@ -191,8 +204,13 @@ export function PlaceDetailsPanel({ placeId, onClose, shareToken }: PlaceDetails
               <div key={idx} className="p-3 bg-gray-50 rounded-lg">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className="font-medium text-sm">{review.authorName}</span>
-                  <span className="text-yellow-500 text-sm">
-                    {'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}
+                  <span className="flex items-center text-sm">
+                    {[...Array(5)].map((_, i) => (
+                      <Star
+                        key={i}
+                        className={`w-3 h-3 ${i < review.rating ? 'text-yellow-500 fill-yellow-500' : 'text-gray-300'}`}
+                      />
+                    ))}
                   </span>
                   <span className="text-xs text-muted-foreground">
                     {review.relativeTimeDescription}
@@ -216,8 +234,8 @@ export function PlaceDetailsPanel({ placeId, onClose, shareToken }: PlaceDetails
       {p.googleMapsUrl && (
         <div className="p-4 border-t flex-shrink-0">
           <Button asChild className="w-full">
-            <a href={p.googleMapsUrl} target="_blank" rel="noopener noreferrer">
-              구글 지도에서 보기 ↗
+            <a href={p.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2">
+              구글 지도에서 보기 <ExternalLink className="w-4 h-4" />
             </a>
           </Button>
         </div>

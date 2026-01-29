@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Trash2, CheckSquare, Square, AlertCircle, CheckCircle, Clock, Loader2 } from 'lucide-react'
+import { Trash2, CheckSquare, Square, AlertCircle, CheckCircle, Clock, Loader2 } from '@/components/icons'
 
 type StatusFilter = 'all' | 'processed' | 'failed' | 'pending'
 

@@ -1,8 +1,10 @@
 'use client'
 
 import { useCallback, useState, useMemo, useEffect, useRef } from 'react'
-import { GoogleMap as GoogleMapComponent, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api'
+import { GoogleMap as GoogleMapComponent, useJsApiLoader, Marker, InfoWindow, Polyline, OverlayView } from '@react-google-maps/api'
 import { CATEGORY_STYLES } from '@/lib/constants'
+import { createMarkerIcon, createSelectedMarkerIcon, createAccommodationMarkerIcon } from '@/lib/map-icons'
+import { Star } from '@/components/icons'
 
 // 지도 설정 상수 (as const로 타입 안전성 확보)
 const MAP_CONFIG = {
@@ -24,8 +26,33 @@ interface MapPlace {
   userRatingsTotal?: number | null
 }
 
+// 숙소 마커용 타입
+interface MapAccommodation {
+  id: string
+  name: string
+  address?: string | null
+  latitude: number
+  longitude: number
+  checkIn?: string
+  checkOut?: string
+}
+
+/** 경로 시각화용 좌표 배열 */
+type RoutePathItemType = 'place' | 'accommodation'
+
+interface RoutePathPoint {
+  lat: number
+  lng: number
+  order: number
+  placeId?: string
+  accommodationId?: string
+  itemType: RoutePathItemType
+}
+
 interface GoogleMapProps {
   places: MapPlace[]
+  /** 숙소 목록 (지도에 별도 마커로 표시) */
+  accommodations?: MapAccommodation[]
   selectedPlaceId: string | null
   onPlaceSelect: (placeId: string | null) => void
   onOpenDetails?: (placeId: string) => void
@@ -36,6 +63,12 @@ interface GoogleMapProps {
   fitBoundsKey?: string | number
   /** 장소 클릭 시 panTo 여부 (기본값: true) */
   enablePanToOnSelect?: boolean
+  /** 경로 시각화 - 일정 순서대로 연결할 좌표 배열 */
+  routePath?: RoutePathPoint[]
+  /** 경로 표시 여부 (기본값: true, routePath가 있을 때) */
+  showRoute?: boolean
+  /** 마커에 순서 라벨 표시 여부 (기본값: false) */
+  showOrderLabels?: boolean
 }
 
 /**
@@ -46,11 +79,13 @@ interface GoogleMapProps {
  * 유지하면서 장소들이 화면에 모두 보이도록 하는 역할을 합니다.
  *
  * @param places - 지도에 표시할 장소 배열
+ * @param accommodations - 지도에 표시할 숙소 배열
  * @param destinationCenter - 히든 핀으로 사용할 destination 좌표 (선택)
  * @returns bounds 객체와 단일 점 여부 (isSinglePoint가 true면 fitBounds 대신 setCenter 사용 권장)
  */
 const calculateBoundsWithHiddenPin = (
   places: MapPlace[],
+  accommodations: MapAccommodation[],
   destinationCenter?: { lat: number; lng: number }
 ): { bounds: google.maps.LatLngBounds; isSinglePoint: boolean } => {
   const bounds = new google.maps.LatLngBounds()
@@ -65,6 +100,12 @@ const calculateBoundsWithHiddenPin = (
   // 2. 실제 장소들 추가
   places.forEach((place) => {
     bounds.extend({ lat: place.latitude, lng: place.longitude })
+    pointCount++
+  })
+
+  // 3. 숙소들 추가
+  accommodations.forEach((acc) => {
+    bounds.extend({ lat: acc.latitude, lng: acc.longitude })
     pointCount++
   })
 
@@ -115,8 +156,29 @@ const mapContainerStyle = {
   height: '100%',
 }
 
+// 경로선 스타일 설정
+const ROUTE_POLYLINE_OPTIONS: google.maps.PolylineOptions = {
+  strokeColor: '#6B7280', // gray-500
+  strokeOpacity: 0,
+  strokeWeight: 3,
+  geodesic: true,
+  icons: [
+    {
+      icon: {
+        path: 'M 0,-1 0,1',
+        strokeOpacity: 0.7,
+        strokeWeight: 3,
+        scale: 3,
+      },
+      offset: '0',
+      repeat: '12px',
+    },
+  ],
+}
+
 export function GoogleMap({
   places,
+  accommodations = [],
   selectedPlaceId,
   onPlaceSelect,
   onOpenDetails,
@@ -124,6 +186,9 @@ export function GoogleMap({
   destinationCenter,
   fitBoundsKey,
   enablePanToOnSelect = true,
+  routePath,
+  showRoute = true,
+  showOrderLabels = false,
 }: GoogleMapProps) {
   const [map, setMap] = useState<google.maps.Map | null>(null)
   const prevSelectedPlaceIdRef = useRef<string | null>(null)
@@ -155,10 +220,25 @@ export function GoogleMap({
     // fitBounds 로직은 useEffect로 이전 (fitBoundsKey 기반)
   }, [])
 
+  // places, accommodations를 ref로 저장하여 fitBounds useEffect 의존성에서 제거
+  // fitBoundsKey가 변경될 때만 fitBounds를 실행하고, places/accommodations 배열 참조가 바뀌어도
+  // fitBounds가 재실행되지 않도록 합니다. (핀 클릭 시 줌 유지)
+  const placesForBoundsRef = useRef(places)
+  const accommodationsForBoundsRef = useRef(accommodations)
+  placesForBoundsRef.current = places
+  accommodationsForBoundsRef.current = accommodations
+
+  // 이전 fitBoundsKey를 추적하여 실제 변경 시에만 fitBounds 실행
+  const prevFitBoundsKeyRef = useRef<string | number | undefined>(undefined)
+
   // fitBoundsKey 변경 시 fitBounds 실행
   useEffect(() => {
     if (!map) return
     if (fitBoundsKey === undefined) return
+
+    // fitBoundsKey가 실제로 변경되지 않았으면 스킵 (places 배열 참조 변경 등으로 인한 재실행 방지)
+    if (prevFitBoundsKeyRef.current === fitBoundsKey) return
+    prevFitBoundsKeyRef.current = fitBoundsKey
 
     // 이전 리스너 정리 (메모리 누수 방지)
     // try-catch-finally로 cleanup 실패 시에도 ref를 null로 설정
@@ -172,23 +252,26 @@ export function GoogleMap({
       }
     }
 
+    const currentPlaces = placesForBoundsRef.current
+    const currentAccommodations = accommodationsForBoundsRef.current
+
     // 장소가 없고 destinationCenter가 있는 경우
-    if (places.length === 0 && destinationCenter) {
+    if (currentPlaces.length === 0 && destinationCenter) {
       map.setCenter(destinationCenter)
       map.setZoom(MAP_CONFIG.DEFAULT_ZOOM_NO_PLACES)
       return
     }
 
     // 장소가 없고 destinationCenter도 없는 경우
-    if (places.length === 0 && !destinationCenter) {
+    if (currentPlaces.length === 0 && !destinationCenter) {
       map.setCenter(MAP_CONFIG.DEFAULT_CENTER)
       map.setZoom(5)
       return
     }
 
-    // 장소가 있는 경우 - 히든 핀 포함 fitBounds
-    if (places.length > 0) {
-      const { bounds, isSinglePoint } = calculateBoundsWithHiddenPin(places, destinationCenter)
+    // 장소 또는 숙소가 있는 경우 - 히든 핀 포함 fitBounds
+    if (currentPlaces.length > 0 || currentAccommodations.length > 0) {
+      const { bounds, isSinglePoint } = calculateBoundsWithHiddenPin(currentPlaces, currentAccommodations, destinationCenter)
       fitBoundsCleanupRef.current = fitBoundsWithLimits(map, bounds, isSinglePoint)
     }
 
@@ -204,7 +287,7 @@ export function GoogleMap({
         }
       }
     }
-  }, [map, fitBoundsKey, places, destinationCenter])
+  }, [map, fitBoundsKey, destinationCenter])
 
   // places를 ref로 저장하여 useEffect 의존성에서 제거 (불필요한 panTo 방지)
   // 이 패턴은 selectedPlaceId 변경 시에만 panTo를 실행하고,
@@ -248,21 +331,22 @@ export function GoogleMap({
   const isUsingDefaultCenter = !center && !destinationCenter && places.length === 0
 
   // 마커 아이콘 캐싱 - isLoaded가 false면 빈 객체 반환
-  // CATEGORY_STYLES는 lib/constants.ts에서 'as const'로 정의된 모듈 레벨 상수로,
-  // 런타임에 변경되지 않으므로 useMemo 의존성에 포함하지 않아도 안전합니다.
-  // isLoaded만 의존성으로 두어 Google Maps API 로드 완료 시에만 아이콘을 생성합니다.
+  // 커스텀 SVG 핀 마커 사용 (카테고리별 색상 + 아이콘)
   const markerIcons = useMemo(() => {
-    if (!isLoaded) return {} as Record<string, google.maps.Symbol>
-    const icons: Record<string, google.maps.Symbol> = {}
-    Object.entries(CATEGORY_STYLES).forEach(([key, style]) => {
-      icons[key] = {
-        path: google.maps.SymbolPath.CIRCLE,
-        fillColor: style.color,
-        fillOpacity: 1,
-        strokeColor: '#ffffff',
-        strokeWeight: 2,
-        scale: 10,
-      }
+    if (!isLoaded) return {} as Record<string, google.maps.Icon>
+    const icons: Record<string, google.maps.Icon> = {}
+    Object.keys(CATEGORY_STYLES).forEach((key) => {
+      icons[key] = createMarkerIcon(key)
+    })
+    return icons
+  }, [isLoaded])
+
+  // 선택된 마커용 아이콘 (더 큰 사이즈)
+  const selectedMarkerIcons = useMemo(() => {
+    if (!isLoaded) return {} as Record<string, google.maps.Icon>
+    const icons: Record<string, google.maps.Icon> = {}
+    Object.keys(CATEGORY_STYLES).forEach((key) => {
+      icons[key] = createSelectedMarkerIcon(key)
     })
     return icons
   }, [isLoaded])
@@ -271,8 +355,11 @@ export function GoogleMap({
   const markers = useMemo(() => {
     if (!isLoaded) return []
     return places.map((place) => {
-      const style = CATEGORY_STYLES[place.category as keyof typeof CATEGORY_STYLES] || CATEGORY_STYLES.other
-      const icon = markerIcons[place.category] || markerIcons.other
+      // 선택된 마커는 더 큰 아이콘 사용
+      const isSelected = place.id === selectedPlaceId
+      const icon = isSelected
+        ? (selectedMarkerIcons[place.category] || selectedMarkerIcons.other)
+        : (markerIcons[place.category] || markerIcons.other)
 
       return (
         <Marker
@@ -280,14 +367,52 @@ export function GoogleMap({
           position={{ lat: place.latitude, lng: place.longitude }}
           onClick={() => onPlaceSelect(place.id)}
           icon={icon}
-          label={{
-            text: style.icon,
-            fontSize: '14px',
-          }}
+          zIndex={isSelected ? 1000 : 1}
         />
       )
     })
-  }, [places, markerIcons, onPlaceSelect, isLoaded])
+  }, [places, markerIcons, selectedMarkerIcons, selectedPlaceId, onPlaceSelect, isLoaded])
+
+  // 숙소 마커용 아이콘 (커스텀 핀)
+  const accommodationIcon = useMemo(() => {
+    if (!isLoaded) return undefined
+    return createAccommodationMarkerIcon()
+  }, [isLoaded])
+
+  // 숙소 마커를 메모이제이션
+  const accommodationMarkers = useMemo(() => {
+    if (!isLoaded || !accommodationIcon) return []
+    return accommodations.map((acc) => {
+      return (
+        <Marker
+          key={`acc-${acc.id}`}
+          position={{ lat: acc.latitude, lng: acc.longitude }}
+          icon={accommodationIcon}
+          title={acc.name}
+        />
+      )
+    })
+  }, [accommodations, accommodationIcon, isLoaded])
+
+  // 경로 Polyline 좌표 계산
+  const routeCoordinates = useMemo(() => {
+    if (!routePath || routePath.length < 2) return []
+    // order 순으로 정렬
+    const sorted = [...routePath].sort((a, b) => a.order - b.order)
+    return sorted.map((point) => ({ lat: point.lat, lng: point.lng }))
+  }, [routePath])
+
+  // 순서 라벨용 placeId → order 매핑
+  const placeOrderMap = useMemo(() => {
+    if (!routePath || !showOrderLabels) return new Map<string, number>()
+    const map = new Map<string, number>()
+    routePath.forEach((point) => {
+      if (point.placeId) {
+        map.set(point.placeId, point.order)
+      }
+    })
+    return map
+  }, [routePath, showOrderLabels])
 
   if (loadError) {
     return (
@@ -321,47 +446,111 @@ export function GoogleMap({
       onClick={() => onPlaceSelect(null)}
     >
       {markers}
+      {accommodationMarkers}
 
-      {selectedPlace && (
-        <InfoWindow
-          position={{ lat: selectedPlace.latitude, lng: selectedPlace.longitude }}
-          onCloseClick={() => onPlaceSelect(null)}
-        >
-          <div className="p-2 max-w-xs">
-            <h3 className="font-semibold text-sm">{selectedPlace.name}</h3>
-
-            {/* 평점 표시 */}
-            {selectedPlace.rating && (
-              <div className="flex items-center gap-1 mt-1">
-                <span className="text-yellow-500 text-xs">★</span>
-                <span className="text-xs font-medium">{selectedPlace.rating.toFixed(1)}</span>
-                {selectedPlace.userRatingsTotal && (
-                  <span className="text-xs text-gray-400">
-                    ({selectedPlace.userRatingsTotal.toLocaleString()})
-                  </span>
-                )}
-              </div>
-            )}
-
-            <p className="text-xs text-gray-500 mt-1">
-              {CATEGORY_STYLES[selectedPlace.category as keyof typeof CATEGORY_STYLES]?.label || '기타'}
-            </p>
-
-            {/* 상세 보기 버튼 */}
-            {onOpenDetails && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onOpenDetails(selectedPlace.id)
-                }}
-                className="text-xs text-blue-600 mt-2 hover:underline block"
-              >
-                상세 정보 보기 →
-              </button>
-            )}
-          </div>
-        </InfoWindow>
+      {/* 경로 Polyline */}
+      {showRoute && routeCoordinates.length >= 2 && (
+        <Polyline
+          path={routeCoordinates}
+          options={ROUTE_POLYLINE_OPTIONS}
+        />
       )}
+
+      {/* 순서 라벨 오버레이 (장소 + 숙소 모두 표시) */}
+      {showOrderLabels && routePath && routePath.map((point) => (
+        <OverlayView
+          key={`order-${point.placeId || point.accommodationId || point.order}`}
+          position={{ lat: point.lat, lng: point.lng }}
+          mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
+        >
+          <div
+            className="absolute -translate-x-1/2 -translate-y-full"
+            style={{ pointerEvents: 'none', marginTop: '-36px' }}
+          >
+            <div
+              className={`text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-md ${
+                point.itemType === 'accommodation' ? 'bg-blue-500' : 'bg-gray-700'
+              }`}
+            >
+              {point.order}
+            </div>
+          </div>
+        </OverlayView>
+      ))}
+
+      {selectedPlace && (() => {
+        const placeStyle = CATEGORY_STYLES[selectedPlace.category as keyof typeof CATEGORY_STYLES] || CATEGORY_STYLES.other
+        return (
+          <InfoWindow
+            position={{ lat: selectedPlace.latitude, lng: selectedPlace.longitude }}
+            onCloseClick={() => onPlaceSelect(null)}
+          >
+            <div className="min-w-[200px] max-w-[280px]">
+              {/* 헤더: 카테고리 아이콘 + 이름 */}
+              <div className="flex items-start gap-2 mb-2">
+                <div
+                  className="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center text-lg"
+                  style={{ backgroundColor: placeStyle.color + '15', color: placeStyle.color }}
+                >
+                  <placeStyle.Icon className="w-5 h-5" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-sm leading-tight line-clamp-2">{selectedPlace.name}</h3>
+                  <span
+                    className="inline-block text-xs px-1.5 py-0.5 rounded mt-1"
+                    style={{ backgroundColor: placeStyle.color + '15', color: placeStyle.color }}
+                  >
+                    {placeStyle.label}
+                  </span>
+                </div>
+              </div>
+
+              {/* 평점 */}
+              {selectedPlace.rating && (
+                <div className="flex items-center gap-1.5 mb-2 px-1">
+                  <div className="flex items-center">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <span
+                        key={star}
+                        className={`text-sm ${star <= Math.round(selectedPlace.rating!) ? 'text-yellow-400' : 'text-gray-200'}`}
+                      >
+                        <Star className="w-3 h-3" />
+                      </span>
+                    ))}
+                  </div>
+                  <span className="text-sm font-medium">{selectedPlace.rating.toFixed(1)}</span>
+                  {selectedPlace.userRatingsTotal && (
+                    <span className="text-xs text-gray-400">
+                      ({selectedPlace.userRatingsTotal.toLocaleString()}개 리뷰)
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* 코멘트 (있는 경우) */}
+              {selectedPlace.comment && (
+                <p className="text-xs text-gray-600 mb-2 px-1 line-clamp-2">
+                  {selectedPlace.comment}
+                </p>
+              )}
+
+              {/* 액션 버튼 */}
+              {onOpenDetails && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onOpenDetails(selectedPlace.id)
+                  }}
+                  className="w-full text-sm font-medium text-white py-2 px-3 rounded-lg transition-colors"
+                  style={{ backgroundColor: placeStyle.color }}
+                >
+                  상세 정보 보기
+                </button>
+              )}
+            </div>
+          </InfoWindow>
+        )
+      })()}
     </GoogleMapComponent>
     </div>
   )

@@ -28,6 +28,8 @@ import {
 } from '@/components/ui/select'
 import type { Flight, Accommodation } from '@/infrastructure/api-client/itinerary.api'
 import type { Place } from '@/types'
+import { Flight as FlightIcon, HotelIcon, MapPin, Expand, Next, Plus } from '@/components/icons'
+import type { IconComponent } from '@/components/icons'
 
 // ============================================================================
 // Types
@@ -126,9 +128,18 @@ type ResourceSectionProps = FlightSectionProps | AccommodationSectionProps
 // Constants
 // ============================================================================
 
-const RESOURCE_CONFIG = {
+const RESOURCE_CONFIG: Record<string, {
+  Icon: IconComponent
+  title: string
+  cardColor: string
+  emptyMessage: string
+  addMessage: { success: string; error: string }
+  updateMessage: { success: string; error: string }
+  deleteMessage: { success: string; error: string }
+  deleteConfirm: string
+}> = {
   flight: {
-    icon: '✈️',
+    Icon: FlightIcon,
     title: '항공편',
     cardColor: 'bg-blue-50 border-blue-200',
     emptyMessage: '등록된 항공편이 없습니다.',
@@ -138,7 +149,7 @@ const RESOURCE_CONFIG = {
     deleteConfirm: '이 항공편을 삭제하시겠습니까?',
   },
   accommodation: {
-    icon: '🏨',
+    Icon: HotelIcon,
     title: '숙소',
     cardColor: 'bg-purple-50 border-purple-200',
     emptyMessage: '등록된 숙소가 없습니다.',
@@ -423,7 +434,7 @@ export function ResourceSection(props: ResourceSectionProps) {
         </div>
         {accommodation.address && (
           <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-            📍 {accommodation.address}
+            <MapPin className="w-3 h-3 inline mr-0.5" />{accommodation.address}
           </p>
         )}
         {accommodation.note && (
@@ -650,10 +661,10 @@ export function ResourceSection(props: ResourceSectionProps) {
       <div className="flex items-center justify-between">
         <CollapsibleTrigger className="flex items-center gap-2 hover:bg-gray-50 rounded px-2 py-1 -ml-2 transition-colors">
           <span className="text-xs text-muted-foreground">
-            {isExpanded ? '▼' : '▶'}
+            {isExpanded ? <Expand className="w-3 h-3" /> : <Next className="w-3 h-3" />}
           </span>
           <h3 className="font-medium text-sm flex items-center gap-2">
-            <span>{config.icon}</span> {config.title}
+            <config.Icon className="w-4 h-4" /> {config.title}
             {items.length > 0 && (
               <span className="text-xs text-muted-foreground bg-gray-100 px-1.5 py-0.5 rounded">
                 {items.length}
@@ -671,7 +682,7 @@ export function ResourceSection(props: ResourceSectionProps) {
           disabled={isLoading || isAddDisabled}
           title={isAddDisabled ? '장소 탭에서 숙소를 먼저 추가하세요' : undefined}
         >
-          + 추가
+          <Plus className="w-3.5 h-3.5 mr-1" /> 추가
         </Button>
       </div>
 

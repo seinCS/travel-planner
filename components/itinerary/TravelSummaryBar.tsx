@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import type { Flight, Accommodation } from '@/infrastructure/api-client/itinerary.api'
+import { Plane, Hotel, MapPin, ChevronRight } from '@/lib/icons'
 
 interface TravelSummaryBarProps {
   flights: Flight[]
@@ -66,7 +67,7 @@ export function TravelSummaryBar({
       >
         {flightSummary && (
           <span className="flex items-center gap-1 text-blue-600">
-            <span>✈️</span>
+            <Plane className="w-4 h-4" />
             <span>{flightSummary}</span>
           </span>
         )}
@@ -75,11 +76,11 @@ export function TravelSummaryBar({
         )}
         {accommodationSummary && (
           <span className="flex items-center gap-1 text-purple-600">
-            <span>🏨</span>
+            <Hotel className="w-4 h-4" />
             <span>{accommodationSummary}</span>
           </span>
         )}
-        <span className="text-xs text-muted-foreground ml-1">›</span>
+        <ChevronRight className="w-4 h-4 text-muted-foreground ml-1" />
       </button>
 
       {/* Detail Modal */}
@@ -93,7 +94,7 @@ export function TravelSummaryBar({
             {/* Flights */}
             <div>
               <h3 className="font-medium text-sm flex items-center gap-2 mb-3">
-                <span>✈️</span> 항공편
+                <Plane className="w-4 h-4 text-blue-500" /> 항공편
               </h3>
               {flights.length === 0 ? (
                 <p className="text-sm text-muted-foreground">등록된 항공편이 없습니다.</p>
@@ -144,7 +145,7 @@ export function TravelSummaryBar({
             {/* Accommodations */}
             <div>
               <h3 className="font-medium text-sm flex items-center gap-2 mb-3">
-                <span>🏨</span> 숙소
+                <Hotel className="w-4 h-4 text-purple-500" /> 숙소
               </h3>
               {accommodations.length === 0 ? (
                 <p className="text-sm text-muted-foreground">등록된 숙소가 없습니다.</p>
@@ -171,8 +172,8 @@ export function TravelSummaryBar({
                           </span>
                         </div>
                         {accommodation.address && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            📍 {accommodation.address}
+                          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                            <MapPin className="w-3 h-3" /> {accommodation.address}
                           </p>
                         )}
                         {accommodation.note && (

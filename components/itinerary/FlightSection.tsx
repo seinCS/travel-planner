@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { AirportCombobox } from '@/components/ui/airport-combobox'
 import {
   Dialog,
   DialogContent,
@@ -20,6 +21,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import type { Flight } from '@/infrastructure/api-client/itinerary.api'
+import { Plane, ChevronDown, ChevronRight, Plus } from '@/lib/icons'
 
 interface FlightSectionProps {
   flights: Flight[]
@@ -181,11 +183,13 @@ export function FlightSection({
       {/* Collapsible Header */}
       <div className="flex items-center justify-between">
         <CollapsibleTrigger className="flex items-center gap-2 hover:bg-gray-50 rounded px-2 py-1 -ml-2 transition-colors">
-          <span className="text-xs text-muted-foreground">
-            {isExpanded ? '▼' : '▶'}
-          </span>
+          {isExpanded ? (
+            <ChevronDown className="w-4 h-4 text-muted-foreground" />
+          ) : (
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+          )}
           <h3 className="font-medium text-sm flex items-center gap-2">
-            <span>✈️</span> 항공편
+            <Plane className="w-4 h-4 text-blue-500" /> 항공편
             {flights.length > 0 && (
               <span className="text-xs text-muted-foreground bg-gray-100 px-1.5 py-0.5 rounded">
                 {flights.length}
@@ -202,7 +206,7 @@ export function FlightSection({
           }}
           disabled={isLoading}
         >
-          + 추가
+          <Plus className="w-4 h-4" /> 추가
         </Button>
       </div>
 
@@ -295,23 +299,23 @@ export function FlightSection({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label htmlFor="departureCity">출발지 *</Label>
-                <Input
+                <AirportCombobox
                   id="departureCity"
-                  placeholder="서울/인천"
+                  placeholder="출발 공항 선택"
                   value={formData.departureCity}
-                  onChange={(e) =>
-                    setFormData({ ...formData, departureCity: e.target.value })
+                  onChange={(value) =>
+                    setFormData({ ...formData, departureCity: value })
                   }
                 />
               </div>
               <div>
                 <Label htmlFor="arrivalCity">도착지 *</Label>
-                <Input
+                <AirportCombobox
                   id="arrivalCity"
-                  placeholder="도쿄/나리타"
+                  placeholder="도착 공항 선택"
                   value={formData.arrivalCity}
-                  onChange={(e) =>
-                    setFormData({ ...formData, arrivalCity: e.target.value })
+                  onChange={(value) =>
+                    setFormData({ ...formData, arrivalCity: value })
                   }
                 />
               </div>
