@@ -120,7 +120,7 @@ export function ItineraryView({
       }
     })
 
-    return pathPoints.length >= 2 ? pathPoints : null
+    return pathPoints.length >= 1 ? pathPoints : null
   }, [selectedDay, places, itinerary?.accommodations])
 
   // 경로 변경 시 부모에게 알림

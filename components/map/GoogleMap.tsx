@@ -445,8 +445,9 @@ export function GoogleMap({
       onLoad={onLoad}
       onClick={() => onPlaceSelect(null)}
     >
-      {markers}
-      {accommodationMarkers}
+      {/* 순서 라벨 표시 시 기본 마커 숨김 (중첩 방지) */}
+      {!showOrderLabels && markers}
+      {!showOrderLabels && accommodationMarkers}
 
       {/* 경로 Polyline */}
       {showRoute && routeCoordinates.length >= 2 && (
@@ -457,26 +458,38 @@ export function GoogleMap({
       )}
 
       {/* 순서 라벨 오버레이 (장소 + 숙소 모두 표시) */}
-      {showOrderLabels && routePath && routePath.map((point) => (
-        <OverlayView
-          key={`order-${point.placeId || point.accommodationId || point.order}`}
-          position={{ lat: point.lat, lng: point.lng }}
-          mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
-        >
-          <div
-            className="absolute -translate-x-1/2 -translate-y-full"
-            style={{ pointerEvents: 'none', marginTop: '-36px' }}
+      {showOrderLabels && routePath && routePath.map((point) => {
+        const isSelected = point.placeId === selectedPlaceId
+        return (
+          <OverlayView
+            key={`order-${point.placeId || point.accommodationId || point.order}`}
+            position={{ lat: point.lat, lng: point.lng }}
+            mapPaneName={OverlayView.OVERLAY_MOUSE_TARGET}
           >
             <div
-              className={`text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-md ${
-                point.itemType === 'accommodation' ? 'bg-blue-500' : 'bg-gray-700'
-              }`}
+              className="absolute -translate-x-1/2 -translate-y-full cursor-pointer"
+              style={{ marginTop: '-4px' }}
+              onClick={(e) => {
+                e.stopPropagation()
+                if (point.placeId) {
+                  onPlaceSelect(point.placeId)
+                }
+              }}
             >
-              {point.order}
+              <div
+                className={`text-white text-sm font-bold rounded-full flex items-center justify-center shadow-lg transition-transform ${
+                  isSelected ? 'scale-125' : 'hover:scale-110'
+                } ${
+                  point.itemType === 'accommodation' ? 'bg-blue-500' : 'bg-gray-800'
+                }`}
+                style={{ width: isSelected ? '32px' : '28px', height: isSelected ? '32px' : '28px' }}
+              >
+                {point.order}
+              </div>
             </div>
-          </div>
-        </OverlayView>
-      ))}
+          </OverlayView>
+        )
+      })}
 
       {selectedPlace && (() => {
         const placeStyle = CATEGORY_STYLES[selectedPlace.category as keyof typeof CATEGORY_STYLES] || CATEGORY_STYLES.other
